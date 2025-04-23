@@ -23,81 +23,102 @@ st.markdown("Use this smart form to quickly assess whether a software change req
 with st.form("change_form"):
     st.header("🔍 Change Request Details")
 
-    scope = st.radio("**Scope of Impact:**", [
-        "Isolated to one component/module",
-        "Affects multiple systems/modules"
-    ])
+    # Using tuples with (value, display_text) for better control
+    scope = st.radio(
+        "**Scope of Impact:**",
+        options=["isolated", "multiple"],
+        format_func=lambda x: "Isolated to one component/module" if x == "isolated" else "Affects multiple systems/modules"
+    )
 
-    safety = st.radio("**Safety & Compliance Impact:**", [
-        "No safety or compliance impact",
-        "Possible impact on safety or regulations"
-    ])
+    safety = st.radio(
+        "**Safety & Compliance Impact:**",
+        options=["no_impact", "has_impact"],
+        format_func=lambda x: "No safety or compliance impact" if x == "no_impact" else "Possible impact on safety or regulations"
+    )
 
-    technical_risk = st.selectbox("**Technical Risk & Complexity:**", [
-        "Very low (well-known fix, low complexity)",
-        "Moderate (minor new logic)",
-        "High (novel or critical logic change)"
-    ])
+    technical_risk = st.selectbox(
+        "**Technical Risk & Complexity:**",
+        options=["very_low", "moderate", "high"],
+        format_func=lambda x: {
+            "very_low": "Very low (well-known fix, low complexity)",
+            "moderate": "Moderate (minor new logic)",
+            "high": "High (novel or critical logic change)"
+        }[x]
+    )
 
-    test_coverage = st.radio("**Testing & Validation:**", [
-        "Fully tested (unit + integration)",
-        "Partially tested",
-        "Not tested"
-    ])
+    test_coverage = st.radio(
+        "**Testing & Validation:**",
+        options=["fully", "partially", "not_tested"],
+        format_func=lambda x: {
+            "fully": "Fully tested (unit + integration)",
+            "partially": "Partially tested",
+            "not_tested": "Not tested"
+        }[x]
+    )
 
     cost = st.slider("**Estimated Change Cost (€):**", 0, 20000, 1000, step=100)
 
-    teams_involved = st.selectbox("**Teams Involved:**", [
-        "1 team",
-        "2-3 teams",
-        "More than 3 or external vendor"
-    ])
+    teams_involved = st.selectbox(
+        "**Teams Involved:**",
+        options=["one", "two_three", "more"],
+        format_func=lambda x: {
+            "one": "1 team",
+            "two_three": "2-3 teams",
+            "more": "More than 3 or external vendor"
+        }[x]
+    )
 
-    urgency = st.radio("**Urgency / Vehicle Launch Impact:**", [
-        "Needed to meet release date",
-        "Important but not release-blocking",
-        "Nice to have"
-    ])
+    urgency = st.radio(
+        "**Urgency / Vehicle Launch Impact:**",
+        options=["critical", "important", "nice_to_have"],
+        format_func=lambda x: {
+            "critical": "Needed to meet release date",
+            "important": "Important but not release-blocking",
+            "nice_to_have": "Nice to have"
+        }[x]
+    )
 
     submit = st.form_submit_button("Evaluate Change")
 
 if submit:
     score = 0
-    if scope == "Isolated to one component/module":
-        score += 0
-    else:
-        score += 2
-
-    if safety == "No safety or compliance impact":
-        score += 0
-    else:
-        score += 5
-
+    
+    # Scope scoring
+    score += 2 if scope == "multiple" else 0
+    
+    # Safety scoring
+    score += 5 if safety == "has_impact" else 0
+    
+    # Technical risk scoring
     risk_scores = {
-        "Very low (well-known fix, low complexity)": 0,
-        "Moderate (minor new logic)": 2,
-        "High (novel or critical logic change)": 4
+        "very_low": 0,
+        "moderate": 2,
+        "high": 4
     }
     score += risk_scores[technical_risk]
-
+    
+    # Test coverage scoring
     test_scores = {
-        "Fully tested (unit + integration)": 0,
-        "Partially tested": 2,
-        "Not tested": 4
+        "fully": 0,
+        "partially": 2,
+        "not_tested": 4
     }
     score += test_scores[test_coverage]
-
+    
+    # Cost scoring
     if cost > 5000:
         score += 2
-
+    
+    # Teams scoring
     team_scores = {
-        "1 team": 0,
-        "2-3 teams": 2,
-        "More than 3 or external vendor": 4
+        "one": 0,
+        "two_three": 2,
+        "more": 4
     }
     score += team_scores[teams_involved]
-
-    if urgency == "Needed to meet release date":
+    
+    # Urgency scoring
+    if urgency == "critical":
         score -= 1
 
     st.header("🧮 Evaluation Result")
