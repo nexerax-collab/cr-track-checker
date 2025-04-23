@@ -1,6 +1,4 @@
 import streamlit as st
-from streamlit_extras.add_vertical_space import add_vertical_space
-from streamlit_extras.let_it_rain import rain
 
 st.set_page_config(page_title="🚀 Fast-Track CCB Evaluation", layout="centered")
 st.markdown("""
@@ -124,7 +122,8 @@ if submit:
     st.header("🧮 Evaluation Result")
     if score <= 4:
         st.success("✅ This change is likely suitable for fast-track approval.")
-        rain(emoji="🚀", font_size=28, falling_speed=5, animation_length="short")
+        # Replace rain animation with a simple success message
+        st.markdown("🚀 Fast-track approved!")
     elif 5 <= score <= 8:
         st.warning("⚠️ This change may need additional review before fast-track approval.")
     else:
