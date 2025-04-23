@@ -1,4 +1,8 @@
 import streamlit as st
+from datetime import datetime, timezone
+
+# Get current UTC time
+current_utc = datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')
 
 st.set_page_config(page_title="🚀 Fast-Track CCB Evaluation", layout="centered")
 st.markdown("""
@@ -14,6 +18,10 @@ st.markdown("""
     }
     </style>
 """, unsafe_allow_html=True)
+
+# Display current date/time and user
+st.markdown(f"Current Date and Time (UTC): {current_utc}")
+st.markdown("Current User's Login: nexerax-collab")
 
 st.title("🚀 Fast-Track CCB Change Evaluation")
 st.markdown("Use this smart form to quickly assess whether a software change request qualifies for fast-track approval.")
@@ -54,7 +62,8 @@ with st.form("change_form"):
         }[x]
     )
 
-    cost = st.slider("**Estimated Change Cost (€):**", 0, 20000, 1000, step=100)
+    # Updated cost slider with new range and threshold
+    cost = st.slider("**Estimated Change Cost (EUR):**", 0, 100000, 5000, step=1000)
 
     teams_involved = st.selectbox(
         "**Teams Involved:**",
@@ -103,8 +112,8 @@ if submit:
     }
     score += test_scores[test_coverage]
     
-    # Cost scoring
-    if cost > 5000:
+    # Updated cost scoring threshold to 20000
+    if cost > 20000:
         score += 2
     
     # Teams scoring
@@ -122,7 +131,6 @@ if submit:
     st.header("🧮 Evaluation Result")
     if score <= 4:
         st.success("✅ This change is likely suitable for fast-track approval.")
-        # Replace rain animation with a simple success message
         st.markdown("🚀 Fast-track approved!")
     elif 5 <= score <= 8:
         st.warning("⚠️ This change may need additional review before fast-track approval.")
