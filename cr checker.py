@@ -104,23 +104,23 @@ st.set_page_config(
 )
 
 st.title("📄 AI-Powered Change Request Summarizer")
-st.markdown("Upload your change request PDF, and I'll summarize its key details for you using Google's Generative AI.")
-st.markdown("---")
+st.markdown("---") # Separator after title
 
-st.subheader("💡 Important Setup Notes:")
+# New introductory content
+st.subheader("What is a Change Request?")
 st.markdown("""
-1.  **Dependencies:** Ensure you have installed the required Python libraries. You'll need a `requirements.txt` file in your project root with:
-    ```
-    streamlit
-    PyPDF2
-    google-generativeai
-    ```
-    Install them locally using: `pip install -r requirements.txt`
-2.  **Google API Key:** Obtain a `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/app/apikey).
-    * **Local Run:** Set it as an environment variable before running the app (e.g., `export GOOGLE_API_KEY="YOUR_API_KEY"` on Linux/macOS, or `set GOOGLE_API_KEY="YOUR_API_KEY"` on Windows).
-    * **Streamlit Cloud Deployment:** Add it as a "secret" named `GOOGLE_API_KEY` in your app's settings on Streamlit Cloud.
+A **Change Request (CR)** is a formal document used to propose an alteration to a product, system, or process. It's a critical part of project management and system development, ensuring that all proposed changes are properly documented, reviewed, and approved before implementation. CRs typically detail the problem, the proposed solution, affected areas, and the impact of the change.
 """)
-st.markdown("---")
+
+st.subheader("How This App Helps:")
+st.markdown("""
+This application streamlines the process of understanding change requests. Instead of manually sifting through lengthy PDF documents, you can simply upload your CR PDF, and our AI-powered tool will automatically extract and summarize the most critical information into a concise, standardized format. This helps you quickly grasp:
+* **The core problem** driving the change.
+* **Who reported** the issue and **from which department**.
+* **When** the request was made.
+* **What components, items, or software** are affected.
+""")
+st.markdown("---") # Separator before file uploader
 
 # File uploader widget for PDF files
 st.subheader("Upload Your Change Request PDF")
@@ -161,6 +161,24 @@ else:
     st.info("Please upload a PDF file above to begin the summarization process.")
 
 st.markdown("---")
+
+# Moved "Important Setup Notes" to an expandable section at the bottom
+with st.expander("⚙️ Important Setup Notes for Developers"):
+    st.markdown("""
+    This section provides guidance for setting up and running the application, especially for local development or deployment on platforms like Streamlit Cloud.
+
+    1.  **Dependencies:** Ensure you have installed the required Python libraries. You'll need a `requirements.txt` file in your project root with:
+        ```
+        streamlit
+        PyPDF2
+        google-generativeai
+        ```
+        Install them locally using: `pip install -r requirements.txt`
+    2.  **Google API Key:** Obtain a `GOOGLE_API_KEY` from [Google AI Studio](https://aistudio.google.com/app/apikey). This key is essential for the AI summarization functionality.
+        * **Local Run:** Set it as an environment variable before running the app (e.g., `export GOOGLE_API_KEY="YOUR_API_KEY"` on Linux/macOS, or `set GOOGLE_API_KEY="YOUR_API_KEY"` on Windows).
+        * **Streamlit Cloud Deployment:** Add it as a "secret" named `GOOGLE_API_KEY` in your app's settings on Streamlit Cloud.
+    """)
+
 st.markdown("""
 <small>
 Built with ❤️ using Streamlit, PyPDF2, and Google Generative AI.
