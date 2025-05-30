@@ -9,7 +9,7 @@ from typing import Optional
 # Configure Google Generative AI with your API key
 # It is highly recommended to set your API key as an environment variable (e.g., GOOGLE_API_KEY)
 # For deployment on Streamlit Cloud, set this as a 'secret' named GOOGLE_API_KEY
-genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
+genai.configure(api_key=os.environ.get("AIzaSyCOzTclJSbF9ipAbE7BmYfwci1Xi6SIH2o"))
 
 # --- Helper Functions ---
 def extract_text_from_pdf(uploaded_file: io.BytesIO) -> Optional[str]:
