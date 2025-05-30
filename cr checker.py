@@ -9,7 +9,7 @@ from typing import Optional
 # Configure Google Generative AI with your API key
 # It is highly recommended to set your API key as an environment variable (e.g., GOOGLE_API_KEY)
 # For deployment on Streamlit Cloud, set this as a 'secret' named GOOGLE_API_KEY
-genai.configure(api_key=os.environ.get("AIzaSyCOzTclJSbF9ipAbE7BmYfwci1Xi6SIH2o"))
+genai.configure(api_key=os.environ.get("GOOGLE_API_KEY"))
 
 # --- Helper Functions ---
 def extract_text_from_pdf(uploaded_file: io.BytesIO) -> Optional[str]:
@@ -47,7 +47,7 @@ def extract_text_from_pdf(uploaded_file: io.BytesIO) -> Optional[str]:
 
 def summarize_change_request(text_content: str) -> str:
     """
-    Summarizes the provided text content using a generative AI model (Gemini-Pro).
+    Summarizes the provided text content using a generative AI model.
     The summary follows a specific structured format for change requests.
     """
     if not text_content or text_content.strip() == "":
@@ -71,13 +71,29 @@ def summarize_change_request(text_content: str) -> str:
     """
 
     try:
-        # Using Gemini-Pro model for text generation
-        model = genai.GenerativeModel('gemini-pro')
+        # Using 'gemini-1.5-flash' as it's generally more available and efficient.
+        # If 'gemini-pro' was desired and not found, it might be a region-specific issue
+        # or require enabling certain APIs in your Google Cloud project.
+        model = genai.GenerativeModel('gemini-1.5-flash')
         response = model.generate_content(prompt)
-        return response.text.strip()
+
+        # Check if the response or its text content is valid
+        if response and response.text:
+            return response.text.strip()
+        else:
+            # Attempt to get more details if response is not as expected
+            error_details = "AI model returned an empty or invalid response."
+            if hasattr(response, 'prompt_feedback') and response.prompt_feedback:
+                # This feedback can indicate content safety issues, etc.
+                error_details += f" Prompt feedback: {response.prompt_feedback}"
+            if hasattr(response, 'candidates') and not response.candidates:
+                error_details += " No candidates generated."
+            st.error(f"AI summarization failed: {error_details}")
+            return "Could not generate summary. The AI model did not return a valid response."
+
     except Exception as e:
-        st.error(f"Error generating summary with AI: {e}")
-        return "Could not generate summary. Please ensure your Google API key is valid and configured correctly."
+        st.error(f"Error generating summary with AI: {e}. This might be due to an invalid API key, network issues, model availability, or rate limits.")
+        return "Could not generate summary. Please ensure your Google API key is valid and configured correctly, and check your network connection and model availability."
 
 # --- Streamlit App UI Layout ---
 st.set_page_config(
