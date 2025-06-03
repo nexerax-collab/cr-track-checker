@@ -1,7 +1,7 @@
 import streamlit as st
 import os
 from datetime import datetime
-# import io # Nicht mehr zwingend hier, da ZIP-Upload entfernt wurde für Simplizität
+# import io # Vorerst nicht zwingend benötigt
 
 # --- Konfiguration und Konstanten ---
 REQUIRED_DOC_ITEMS = [
@@ -55,25 +55,24 @@ REQUIRED_DOC_ITEMS = [
 ]
 LOG_FILE = "uploads.log"
 OUTPUT_BASE_FOLDER = "output_folder"
-ALLOWED_FILE_TYPES = None
+ALLOWED_FILE_TYPES = ["pdf"] # Nur PDF-Dateien erlaubt
 
 # --- Globale Seitenkonfiguration ---
-st.set_page_config(page_title="Dokumenten Management", layout="wide")
+st.set_page_config(page_title="Dokumenten Upload", layout="centered") # Zentriertes Layout für "Google-Look"
 
 # --- Session State Initialisierung ---
 def init_session_state():
     defaults = {
-        'current_page': "Suchen & Hochladen",
+        'current_page': "Dokument hochladen", # Startseite ist jetzt die Upload-Seite
         'uploaded_docs_session': [],
         'release_version_input': "V1.0.0",
-        'doc_search_query': "",
-        'selected_for_upload_id': None
+        'selected_for_upload_id': None # Ersetzt 'template_selection' für Klarheit
     }
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
 
-    for item in REQUIRED_DOC_ITEMS:
+    for item in REQUIRED_DOC_ITEMS: # Uploader-Keys initialisieren
         uploader_key = f"uploader_{item['id']}"
         if uploader_key not in st.session_state:
             st.session_state[uploader_key] = None
@@ -85,13 +84,22 @@ def save_and_log_file(uploaded_file_obj, version_from_input, doc_item_config):
     uploaded_filename = uploaded_file_obj.name
     file_content = uploaded_file_obj.getvalue()
     try:
-        original_extension = os.path.splitext(uploaded_filename)[1] or ".dat"
+        # Da ALLOWED_FILE_TYPES = ["pdf"], sollte die Endung .pdf sein.
+        # os.path.splitext extrahiert die Endung sicher.
+        original_extension = os.path.splitext(uploaded_filename)[1]
+        if not original_extension.lower() == ".pdf": # Zusätzliche Sicherheitsprüfung
+            st.error(f"Fehler: Nur PDF-Dateien sind erlaubt. Hochgeladen: {uploaded_filename}")
+            return None, None
+            
         clean_version = version_from_input.replace(" ", "_").replace("/", "-")
-        new_base_name = f"{doc_item_config['department_code']}_{doc_item_config['expected_base_filename']}_{clean_version}"
-        new_filename = f"{new_base_name}{original_extension}"
+        # Stelle sicher, dass der Basisname keine problematischen Zeichen enthält
+        safe_base_filename = doc_item_config['expected_base_filename'].replace(" ", "_").replace("/", "-").replace(".", "")
+
+        new_base_name = f"{doc_item_config['department_code']}_{safe_base_filename}_{clean_version}"
+        new_filename = f"{new_base_name}.pdf" # Explizit .pdf setzen
         
         target_dir_name = doc_item_config['department_name_DE'].replace(" & ", "_und_").replace(" ", "")
-        target_dir = os.path.join(OUTPUT_BASE_FOLDER, target_dir_name, doc_item_config['expected_base_filename'])
+        target_dir = os.path.join(OUTPUT_BASE_FOLDER, target_dir_name, safe_base_filename)
         os.makedirs(target_dir, exist_ok=True)
         save_path = os.path.join(target_dir, new_filename)
 
@@ -108,104 +116,93 @@ def save_and_log_file(uploaded_file_obj, version_from_input, doc_item_config):
 
 # --- Render-Funktionen für die "Seiten" ---
 
-def render_google_like_upload_page():
-    # Platz für ein Logo oder einen prägnanten Titel
-    # st.image("ihr_logo.png", width=200) # Wenn Sie ein Logo haben
-    st.markdown("<h1 style='text-align: center; color: #4285F4;'>Dokumenten Management</h1>", unsafe_allow_html=True)
-    st.markdown("<p style='text-align: center;'>Einfaches Hochladen und Verwalten Ihrer Projektdokumente.</p>", unsafe_allow_html=True)
-
+def render_simple_upload_page():
+    # Statt st.title für einen "Google-Look" eher dezenter oder ein Logo
+    # st.image("ihr_firmenlogo.png", width=150) # Beispiel für Logo
+    st.markdown("<h1 style='text-align: center; color: #4A4A4A; margin-bottom: 30px;'>Dokument hochladen</h1>", unsafe_allow_html=True)
 
     # Release Version Eingabe (weniger dominant)
-    with st.expander("Release Version festlegen (aktuell: " + st.session_state.release_version_input + ")", expanded=False):
+    with st.expander("Aktuelle Release Version: **" + st.session_state.release_version_input + "** (hier klicken zum Ändern)", expanded=False):
         new_version = st.text_input(
-            "Neue Release Version:",
+            "Neue Release Version festlegen:",
             value=st.session_state.release_version_input,
-            key="release_version_setter"
+            key="release_version_setter_mainpage" # Eindeutiger Key
         )
         if new_version != st.session_state.release_version_input:
             st.session_state.release_version_input = new_version
-            st.rerun()
-
+            st.rerun() # Neu laden, um die aktualisierte Version überall anzuzeigen
 
     st.markdown("---")
-    # "Google-like" Suchleiste
-    search_query_val = st.text_input(
-        "Suchen Sie nach einer Dokumentenvorlage (z.B. 'Risikoanalyse', 'Testbericht', 'Architektur')...",
-        value=st.session_state.doc_search_query,
-        key="doc_search_input_main",
-        placeholder="Name der Vorlage oder Abteilung eingeben..."
+
+    # Schritt 1: Dokumentenvorlage auswählen
+    st.markdown("### ❶ Dokumentenvorlage auswählen")
+    doc_options_map = {item['id']: f"{item['department_name_DE']} - {item['display_name_DE']}" for item in REQUIRED_DOC_ITEMS}
+    select_options = {None: "--- Bitte eine Vorlage auswählen ---"}
+    select_options.update(doc_options_map)
+
+    # `index` so setzen, dass die aktuelle Auswahl erhalten bleibt oder der Platzhalter gezeigt wird
+    current_selection_id = st.session_state.selected_for_upload_id
+    options_keys_list = list(select_options.keys())
+    try:
+        current_selection_index = options_keys_list.index(current_selection_id)
+    except ValueError:
+        current_selection_index = 0 # Index des Platzhalters "--- Bitte eine Vorlage auswählen ---"
+
+    selected_id = st.selectbox(
+        "Wählen Sie den Dokumententyp:",
+        options=options_keys_list,
+        format_func=lambda id_key: select_options[id_key],
+        key="sb_template_select_simple",
+        index=current_selection_index
     )
-    # Update session state on change (text_input's on_change is better but needs careful handling, direct assignment is simpler for now)
-    if search_query_val != st.session_state.doc_search_query:
-         st.session_state.doc_search_query = search_query_val
-         st.session_state.selected_for_upload_id = None # Suchanfrage ändert sich, Auswahl zurücksetzen
-         st.rerun()
+    # Update session state wenn sich Auswahl ändert
+    if selected_id != st.session_state.selected_for_upload_id:
+        st.session_state.selected_for_upload_id = selected_id
+        # Uploader Key der *vorherigen* Auswahl zurücksetzen, falls vorhanden
+        # Dies ist komplexer, wenn man den alten Key nicht direkt hat.
+        # Einfacher ist, den Uploader Key immer eindeutig zu machen und ihn nicht global zurückzusetzen,
+        # sondern nur bei erfolgreichem Upload des spezifischen Items.
+        st.rerun()
 
 
-    # Upload Bereich, nur sichtbar wenn eine Vorlage ausgewählt wurde
+    # Schritt 2: Dokument hochladen (nur wenn eine Vorlage ausgewählt wurde)
     if st.session_state.selected_for_upload_id:
-        selected_item_config = next((item for item in REQUIRED_DOC_ITEMS if item['id'] == st.session_state.selected_for_upload_id), None)
-        if selected_item_config:
-            st.markdown(f"### Datei hochladen für: **{selected_item_config['display_name_DE']}**")
+        selected_doc_id_for_upload = st.session_state.selected_for_upload_id
+        current_doc_item = next((item for item in REQUIRED_DOC_ITEMS if item['id'] == selected_doc_id_for_upload), None)
+
+        if current_doc_item:
+            st.markdown("---")
+            st.markdown(f"### ❷ PDF-Datei für '{current_doc_item['display_name_DE']}' hochladen")
             
-            uploader_key = f"uploader_{selected_item_config['id']}"
+            uploader_key_specific = f"uploader_{current_doc_item['id']}"
+            
             uploaded_file = st.file_uploader(
-                "Datei auswählen:",
-                type=ALLOWED_FILE_TYPES,
-                key=uploader_key
+                "PDF-Datei auswählen:",
+                type=ALLOWED_FILE_TYPES, # Erzwingt PDF
+                key=uploader_key_specific,
+                help="Bitte laden Sie das Dokument als PDF-Datei hoch."
             )
 
             if uploaded_file:
                 st.write(f"Ausgewählte Datei: `{uploaded_file.name}` ({uploaded_file.size / 1024:.2f} KB)")
-                original_extension_preview = os.path.splitext(uploaded_file.name)[1] or ".dat"
+                
+                # Voraussichtlicher neuer Dateiname
                 clean_version_preview = st.session_state.release_version_input.replace(" ", "_").replace("/", "-")
-                prospective_new_name = f"{selected_item_config['department_code']}_{selected_item_config['expected_base_filename']}_{clean_version_preview}{original_extension_preview}"
+                safe_base_filename_preview = current_doc_item['expected_base_filename'].replace(" ", "_").replace("/", "-").replace(".", "")
+                prospective_new_name = f"{current_doc_item['department_code']}_{safe_base_filename_preview}_{clean_version_preview}.pdf"
                 st.info(f"Voraussichtlicher neuer Dateiname: `{prospective_new_name}`")
 
-                if st.button(f"Upload für '{selected_item_config['display_name_DE']}' bestätigen", key=f"btn_confirm_upload_{selected_item_config['id']}"):
-                    processed_doc_id, new_filename = save_and_log_file(uploaded_file, st.session_state.release_version_input, selected_item_config)
+                if st.button(f"Upload für '{current_doc_item['display_name_DE']}' bestätigen", key=f"btn_confirm_upload_simple_{current_doc_item['id']}"):
+                    processed_doc_id, new_filename = save_and_log_file(uploaded_file, st.session_state.release_version_input, current_doc_item)
                     if processed_doc_id:
-                        st.success(f"✅ '{selected_item_config['display_name_DE']}' ('{uploaded_file.name}') erfolgreich als '{new_filename}' gespeichert.")
+                        st.success(f"✅ '{current_doc_item['display_name_DE']}' ('{uploaded_file.name}') wurde erfolgreich als '{new_filename}' gespeichert.")
                         if processed_doc_id not in st.session_state.uploaded_docs_session:
                             st.session_state.uploaded_docs_session.append(processed_doc_id)
                         
-                        st.session_state[uploader_key] = None # Uploader leeren
-                        st.session_state.selected_for_upload_id = None # Auswahl zurücksetzen
-                        st.session_state.doc_search_query = "" # Suchfeld leeren
+                        # Zustand zurücksetzen für nächsten Upload
+                        st.session_state[uploader_key_specific] = None
+                        st.session_state.selected_for_upload_id = None # Auswahl zurücksetzen, damit Platzhalter wieder erscheint
                         st.rerun()
-            
-            if st.button("Andere Vorlage auswählen (Suche zurücksetzen)", key="btn_reset_selection"):
-                st.session_state.selected_for_upload_id = None
-                st.session_state.doc_search_query = ""
-                st.session_state[f"uploader_{selected_item_config['id']}"] = None # Auch hier Uploader leeren
-                st.rerun()
-
-    # Suchergebnisse anzeigen, wenn etwas eingegeben wurde und nichts ausgewählt ist
-    elif st.session_state.doc_search_query:
-        query = st.session_state.doc_search_query.lower()
-        search_results = [
-            item for item in REQUIRED_DOC_ITEMS
-            if query in item['display_name_DE'].lower() or \
-               query in item['expected_base_filename'].lower() or \
-               query in item['department_name_DE'].lower() or \
-               query in item['department_code'].lower()
-        ]
-        if search_results:
-            st.markdown("---")
-            st.markdown("#### Suchergebnisse:")
-            # Verwende Spalten für ein ansprechenderes Layout der Suchergebnisse
-            cols_per_row = 3
-            for i in range(0, len(search_results), cols_per_row):
-                cols = st.columns(cols_per_row)
-                for j in range(cols_per_row):
-                    if i + j < len(search_results):
-                        item = search_results[i+j]
-                        if cols[j].button(f"{item['display_name_DE']} ({item['department_name_DE']})", key=f"select_btn_{item['id']}", use_container_width=True):
-                            st.session_state.selected_for_upload_id = item['id']
-                            st.session_state.doc_search_query = "" # Suchfeld leeren nach Auswahl
-                            st.rerun()
-        elif len(query) > 1: # Um "Keine Ergebnisse" bei sehr kurzen Eingaben zu vermeiden
-            st.info("Keine passenden Dokumentenvorlagen gefunden. Bitte versuchen Sie einen anderen Suchbegriff.")
 
 
 def render_overview_page():
@@ -230,7 +227,7 @@ def render_overview_page():
             for doc_item in docs_in_dept:
                 is_uploaded = doc_item['id'] in st.session_state.uploaded_docs_session
                 status_icon = "✔️" if is_uploaded else "❌"
-                color = "green" if is_uploaded else "#D3D3D3" # Helleres Grau für nicht erledigt
+                color = "green" if is_uploaded else "#D3D3D3" 
                 text_color = "black" if not is_uploaded else "green"
                 
                 col1, col2 = st.columns([1, 10])
@@ -250,20 +247,18 @@ def render_overview_page():
 
     if unique_uploaded_docs_count == total_required_docs and total_required_docs > 0:
         st.sidebar.success("🎉 Alle Dokumente da!")
-        # st.balloons() # Deaktiviert für weniger Ablenkung
 
     st.sidebar.markdown("---")
     if st.sidebar.button("Upload-Session zurücksetzen"):
         st.session_state.uploaded_docs_session = []
         st.session_state.selected_for_upload_id = None
-        st.session_state.doc_search_query = ""
-        for item in REQUIRED_DOC_ITEMS: # Uploader-Felder zurücksetzen
+        for item in REQUIRED_DOC_ITEMS: 
             st.session_state[f"uploader_{item['id']}"] = None
         st.rerun()
 
 # --- Hauptlogik zur Seitenauswahl und -anzeige ---
 st.sidebar.title("Navigation")
-page_options = ["Suchen & Hochladen", "Dokumentenübersicht"]
+page_options = ["Dokument hochladen", "Dokumentenübersicht"]
 
 try:
     current_page_index = page_options.index(st.session_state.current_page)
@@ -275,12 +270,12 @@ st.session_state.current_page = st.sidebar.radio(
     "Menü",
     page_options,
     index=current_page_index,
-    key="main_nav_radio"
+    key="main_nav_radio_singlefile"
 )
 
 # Anzeige der ausgewählten Seite
-if st.session_state.current_page == "Suchen & Hochladen":
-    render_google_like_upload_page()
+if st.session_state.current_page == "Dokument hochladen":
+    render_simple_upload_page()
 elif st.session_state.current_page == "Dokumentenübersicht":
     render_overview_page()
 
@@ -291,7 +286,7 @@ with st.sidebar.expander("📜 Upload-Protokoll", expanded=False):
             with open(LOG_FILE, "r", encoding="utf-8") as log_f_read:
                 log_data = log_f_read.read()
                 if log_data:
-                    st.text_area("Protokoll:", log_data, height=200, disabled=True, key="log_view_sidebar")
+                    st.text_area("Protokoll:", log_data, height=200, disabled=True, key="log_view_sidebar_singlefile")
                 else:
                     st.info("Das Protokoll ist leer.")
         else:
