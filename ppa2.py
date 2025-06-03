@@ -1,8 +1,8 @@
 import streamlit as st
 import os
 from datetime import datetime
-import zipfile
-import io
+import zipfile # For handling ZIP files
+import io      # For handling byte streams with ZIP files
 import pandas as pd # For CSV export
 
 # --- Configuration and Constants ---
@@ -67,7 +67,7 @@ st.set_page_config(page_title="Document Upload Tool", layout="centered")
 def init_session_state():
     defaults = {
         'current_page': "Upload Document",
-        'all_release_uploads': {}, # Stores {release_name: {doc_id: {metadata}}}
+        'all_release_uploads': {},
         'current_active_release': "Default_Release_V1.0",
         'selected_department_for_upload': None,
         'selected_doc_id_for_upload': None,
@@ -76,10 +76,10 @@ def init_session_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
-    for item in REQUIRED_DOC_ITEMS: # For uploaders and metadata inputs
+    for item in REQUIRED_DOC_ITEMS:
         st.session_state.setdefault(f"uploader_{item['id']}", None)
-        st.session_state.setdefault(f"doc_ver_{item['id']}", "1.0") # Default doc version
-        st.session_state.setdefault(f"doc_mat_{item['id']}", MATURITY_OPTIONS[0]) # Default maturity
+        st.session_state.setdefault(f"doc_ver_{item['id']}", "1.0")
+        st.session_state.setdefault(f"doc_mat_{item['id']}", MATURITY_OPTIONS[0])
 init_session_state()
 
 # --- Core Function for Saving and Logging ---
@@ -105,19 +105,19 @@ def save_and_log_file(uploaded_file_obj, active_release_name, doc_item_config, d
                         break
                 if found_pdf_path_in_zip:
                     final_file_content_to_save = z.read(found_pdf_path_in_zip)
-                    st.info(f"Extracted '{os.path.basename(found_pdf_path_in_zip)}' from ZIP '{uploaded_filename}'.")
+                    st.info(f"Extracted '{os.path.basename(found_pdf_path_in_zip)}' from uploaded ZIP '{uploaded_filename}'.")
                 else:
-                    st.error(f"Error: ZIP '{uploaded_filename}' does not contain the expected PDF "
-                             f"'{doc_item_config['expected_base_filename']}.pdf' for '{doc_item_config['display_name_EN']}'.")
-                    return None, None, None # id, new_filename, save_path
+                    st.error(f"Error: ZIP file '{uploaded_filename}' does not contain the expected PDF "
+                             f"'{doc_item_config['expected_base_filename']}.pdf' for document type '{doc_item_config['display_name_EN']}'.")
+                    return None, None, None 
         except zipfile.BadZipFile:
-            st.error(f"Error: Uploaded ZIP '{uploaded_filename}' is corrupted or invalid.")
+            st.error(f"Error: The uploaded ZIP file '{uploaded_filename}' is corrupted or not a valid ZIP file.")
             return None, None, None
         except Exception as e_zip:
-            st.error(f"Error processing ZIP '{uploaded_filename}': {e_zip}")
+            st.error(f"Error processing ZIP file '{uploaded_filename}': {e_zip}")
             return None, None, None
     else:
-        st.error(f"Error: Only PDF or ZIP files allowed. Uploaded: '{uploaded_filename}'. Allowed: {ALLOWED_FILE_TYPES}")
+        st.error(f"Error: Only PDF or ZIP files are allowed. You uploaded: '{uploaded_filename}'. Allowed: {ALLOWED_FILE_TYPES}")
         return None, None, None
 
     if final_file_content_to_save is None: return None, None, None
@@ -126,7 +126,6 @@ def save_and_log_file(uploaded_file_obj, active_release_name, doc_item_config, d
         clean_doc_version = doc_specific_version.replace(" ", "_").replace("/", "-").replace("\\", "").replace(":", "")
         safe_base_filename = doc_item_config['expected_base_filename'].replace(" ", "_").replace("/", "-").replace(".", "")
         
-        # Filename: DEPTCODE_BASEFILENAME_DOCVERSION_MATURITY.pdf (Maturity added)
         new_base_name = f"{doc_item_config['department_code']}_{safe_base_filename}_{clean_doc_version}_{doc_maturity.lower()}"
         new_filename = f"{new_base_name}{final_target_extension}"
         
@@ -144,19 +143,18 @@ def save_and_log_file(uploaded_file_obj, active_release_name, doc_item_config, d
             log_f.write(log_message + "\n")
         return doc_item_config['id'], new_filename, save_path
     except Exception as e_save:
-        st.error(f"❌ Error saving file '{new_filename}' for '{doc_item_config['display_name_EN']}': {e_save}")
+        st.error(f"❌ Error while saving file '{new_filename}' for '{doc_item_config['display_name_EN']}': {e_save}")
         return None, None, None
 
 # --- Render Functions for "Pages" ---
 def render_upload_document_page():
     st.markdown("<h1 style='text-align: center; color: #4A4A4A; margin-bottom: 20px;'>Upload Document</h1>", unsafe_allow_html=True)
 
-    # Active Release Context
     st.markdown("#### Current Active Release for Uploads")
     new_active_release = st.text_input(
         "Define or switch active Release (e.g., ProjectOmega_Sprint3_RC1). New uploads are linked to this release:",
         value=st.session_state.current_active_release,
-        key="active_release_text_input_en_v2"
+        key="active_release_text_input_en_v2_fixed" # Ensure key is unique if this function is called multiple times in complex setups (not the case here)
     )
     if new_active_release != st.session_state.current_active_release:
         st.session_state.current_active_release = new_active_release
@@ -168,26 +166,24 @@ def render_upload_document_page():
     st.markdown(f"**All new uploads will be processed for Release: `{st.session_state.current_active_release}`**")
     st.markdown("---")
 
-    # Step 1: Select Department
     st.markdown("### ① Select Department")
     department_names = sorted(list(set(item['department_name_EN'] for item in REQUIRED_DOC_ITEMS)))
     dept_options = {None: "--- Please select a department ---"}
-    for i, dept_name in enumerate(department_names):
-        dept_options[dept_name] = dept_name # Using name as key for simplicity here
+    for dept_name in department_names: # Use actual name as key for simplicity if names are unique
+        dept_options[dept_name] = dept_name
 
     selected_dept_name = st.selectbox(
         "Select the department:",
         options=list(dept_options.keys()),
         format_func=lambda key: dept_options[key],
-        key="sb_dept_select_en",
+        key="sb_dept_select_en_fixed",
         index=list(dept_options.keys()).index(st.session_state.selected_department_for_upload) if st.session_state.selected_department_for_upload in dept_options else 0
     )
     if selected_dept_name != st.session_state.selected_department_for_upload:
         st.session_state.selected_department_for_upload = selected_dept_name
-        st.session_state.selected_doc_id_for_upload = None # Reset doc template if dept changes
+        st.session_state.selected_doc_id_for_upload = None
         st.rerun()
 
-    # Step 2: Select Document Template (filtered by department)
     if st.session_state.selected_department_for_upload:
         st.markdown("---")
         st.markdown(f"### ② Select Document Template for '{st.session_state.selected_department_for_upload}'")
@@ -208,14 +204,13 @@ def render_upload_document_page():
             "Select the document type:",
             options=doc_template_keys_list,
             format_func=lambda id_key: doc_template_select_options[id_key],
-            key="sb_doc_template_select_en",
+            key="sb_doc_template_select_en_fixed",
             index=current_doc_template_index
         )
         if selected_doc_id != st.session_state.selected_doc_id_for_upload:
             st.session_state.selected_doc_id_for_upload = selected_doc_id
             st.rerun()
 
-    # Step 3 & 4: Metadata Inputs and File Uploader
     if st.session_state.selected_doc_id_for_upload:
         current_doc_item = next((item for item in REQUIRED_DOC_ITEMS if item['id'] == st.session_state.selected_doc_id_for_upload), None)
         if current_doc_item:
@@ -226,24 +221,19 @@ def render_upload_document_page():
             doc_version_key = f"doc_ver_{current_doc_item['id']}"
             doc_maturity_key = f"doc_mat_{current_doc_item['id']}"
 
-            # Ensure these keys are in session state if not already (though init should handle it)
-            st.session_state.setdefault(doc_version_key, "1.0")
-            st.session_state.setdefault(doc_maturity_key, MATURITY_OPTIONS[0])
-
-
             col1_meta, col2_meta = st.columns(2)
             with col1_meta:
                 st.session_state[doc_version_key] = st.text_input(
                     "Document Version (e.g., 1.0, 1.1_beta):", 
                     value=st.session_state[doc_version_key], 
-                    key=f"ti_{doc_version_key}" # Unique key for text input
+                    key=f"ti_{doc_version_key}_fixed"
                 )
             with col2_meta:
                 st.session_state[doc_maturity_key] = st.selectbox(
                     "Document Maturity:", 
                     options=MATURITY_OPTIONS, 
                     index=MATURITY_OPTIONS.index(st.session_state[doc_maturity_key]),
-                    key=f"sb_{doc_maturity_key}" # Unique key for selectbox
+                    key=f"sb_{doc_maturity_key}_fixed"
                 )
             
             help_text_uploader = (f"Upload PDF, or ZIP containing '{current_doc_item['expected_base_filename']}.pdf'.")
@@ -259,7 +249,7 @@ def render_upload_document_page():
                 prospective_new_name = f"{current_doc_item['department_code']}_{safe_base_filename_preview}_{clean_doc_version_preview}_{st.session_state[doc_maturity_key].lower()}.pdf"
                 st.info(f"Expected new filename after processing: `{prospective_new_name}`")
 
-                if st.button(f"Confirm Upload for '{current_doc_item['display_name_EN']}'", key=f"btn_confirm_final_{current_doc_item['id']}"):
+                if st.button(f"Confirm Upload for '{current_doc_item['display_name_EN']}'", key=f"btn_confirm_final_fixed_{current_doc_item['id']}"):
                     doc_id, new_name, saved_path = save_and_log_file(
                         uploaded_file, 
                         st.session_state.current_active_release, 
@@ -285,13 +275,13 @@ def render_upload_document_page():
                         }
                         st.session_state.all_release_uploads[active_release][doc_id] = upload_details
                         
-                        st.session_state[uploader_key_specific] = None
+                        # TEMPORARY WORKAROUND for Python 3.13 issue: Comment out uploader reset
+                        # st.session_state[uploader_key_specific] = None 
                         st.session_state.selected_doc_id_for_upload = None 
-                        st.session_state.selected_department_for_upload = None # Reset department too
+                        st.session_state.selected_department_for_upload = None 
                         st.rerun()
 
 def generate_csv_data(release_name_to_export):
-    """Generates data for CSV export."""
     data_for_csv = []
     release_uploads = st.session_state.all_release_uploads.get(release_name_to_export, {})
 
@@ -299,59 +289,42 @@ def generate_csv_data(release_name_to_export):
         doc_id = item_config['id']
         upload_info = release_uploads.get(doc_id)
         
-        if upload_info:
-            status = "Uploaded"
-            doc_version = upload_info.get("doc_version", "N/A")
-            maturity = upload_info.get("maturity", "N/A")
-            saved_filename = upload_info.get("saved_filename", "N/A")
-            saved_path = upload_info.get("saved_path", "N/A")
-        else:
-            status = "Missing"
-            doc_version, maturity, saved_filename, saved_path = "N/A", "N/A", "N/A", "N/A"
+        if upload_info: status, doc_version, maturity, saved_filename, saved_path = "Uploaded", upload_info.get("doc_version", "N/A"), upload_info.get("maturity", "N/A"), upload_info.get("saved_filename", "N/A"), upload_info.get("saved_path", "N/A")
+        else: status, doc_version, maturity, saved_filename, saved_path = "Missing", "N/A", "N/A", "N/A", "N/A"
             
         data_for_csv.append({
-            "Release": release_name_to_export,
-            "Department": item_config['department_name_EN'],
-            "Document Template Name": item_config['display_name_EN'],
-            "Status": status,
-            "Uploaded Document Version": doc_version,
-            "Maturity": maturity,
-            "Saved Filename": saved_filename,
-            "Full Path": saved_path
+            "Release": release_name_to_export, "Department": item_config['department_name_EN'],
+            "Document Template Name": item_config['display_name_EN'], "Status": status,
+            "Uploaded Document Version": doc_version, "Maturity": maturity,
+            "Saved Filename": saved_filename, "Full Path": saved_path
         })
     return pd.DataFrame(data_for_csv)
 
-
 def render_document_overview_page():
     st.title("📊 Document Overview")
-    
     available_releases = sorted(list(st.session_state.all_release_uploads.keys()), reverse=True)
 
     default_overview_release = st.session_state.overview_selected_release
     if not default_overview_release or default_overview_release not in available_releases:
-        if st.session_state.current_active_release in available_releases:
-            default_overview_release = st.session_state.current_active_release
-        elif available_releases:
-            default_overview_release = available_releases[0]
+        if st.session_state.current_active_release in available_releases: default_overview_release = st.session_state.current_active_release
+        elif available_releases: default_overview_release = available_releases[0]
         else: default_overview_release = None
 
-    if default_overview_release != st.session_state.overview_selected_release: # Sync if changed
+    if default_overview_release != st.session_state.overview_selected_release:
         st.session_state.overview_selected_release = default_overview_release
-
+    
     if not available_releases:
-        st.info("No releases with uploaded documents yet to display. Upload documents on the 'Upload Document' page first.")
+        st.info("No releases with uploaded documents yet. Upload documents on the 'Upload Document' page.")
         if st.session_state.overview_selected_release is not None: st.session_state.overview_selected_release = None
         return
 
-    # Selectbox for choosing release to view
     col1_view, col2_export = st.columns([3,1])
     with col1_view:
         selected_release_for_view = st.selectbox(
             "Select Release to View:", options=available_releases,
             index=available_releases.index(st.session_state.overview_selected_release) if st.session_state.overview_selected_release in available_releases else 0,
-            key="sb_overview_release_select_en_v2"
+            key="sb_overview_release_select_en_v2_fixed"
         )
-    
     if selected_release_for_view != st.session_state.overview_selected_release:
         st.session_state.overview_selected_release = selected_release_for_view
         st.rerun()
@@ -361,22 +334,18 @@ def render_document_overview_page():
         st.info("Please select a release to view its document status.")
         return
 
-    with col2_export: # Download button next to selectbox
-        st.write("") # Spacer
-        st.write("") # Spacer for alignment
+    with col2_export:
+        st.write("") 
+        st.write("") 
         csv_df = generate_csv_data(release_to_display_final)
         st.download_button(
-            label="📥 Export to CSV",
-            data=csv_df.to_csv(index=False, sep=';').encode('utf-8-sig'), # utf-8-sig for Excel compatibility
-            file_name=f"document_overview_{release_to_display_final.replace(' ','_')}.csv",
-            mime='text/csv',
-            key=f"download_csv_{release_to_display_final}"
+            label="📥 Export to CSV", data=csv_df.to_csv(index=False, sep=';').encode('utf-8-sig'),
+            file_name=f"document_overview_{release_to_display_final.replace(' ','_')}.csv", mime='text/csv',
+            key=f"download_csv_fixed_{release_to_display_final}"
         )
 
     st.markdown(f"### Status for Release: **{release_to_display_final}**")
-    
     release_uploads = st.session_state.all_release_uploads.get(release_to_display_final, {})
-
     departments = {}
     for item in REQUIRED_DOC_ITEMS:
         dept_name = item['department_name_EN']
@@ -385,42 +354,25 @@ def render_document_overview_page():
 
     for dept_name, docs_in_dept in sorted(departments.items()):
         uploaded_in_dept_count = sum(1 for doc_item in docs_in_dept if doc_item['id'] in release_uploads)
-        
         with st.expander(f"Department: {dept_name} ({uploaded_in_dept_count}/{len(docs_in_dept)} uploaded)", expanded=True):
-            # Header for columns
             c1, c2, c3, c4 = st.columns([1, 5, 2, 2])
-            c1.markdown("**Status**")
-            c2.markdown("**Document Template**")
-            c3.markdown("**Version**")
-            c4.markdown("**Maturity**")
-
+            c1.markdown("**Status**"); c2.markdown("**Document Template**"); c3.markdown("**Version**"); c4.markdown("**Maturity**")
             for doc_item in docs_in_dept:
-                doc_id = doc_item['id']
-                upload_info = release_uploads.get(doc_id)
-                
+                upload_info = release_uploads.get(doc_item['id'])
                 col1, col2, col3, col4 = st.columns([1, 5, 2, 2])
-                with col1:
-                    is_uploaded = bool(upload_info)
-                    status_icon = "✔️" if is_uploaded else "❌"
-                    color = "green" if is_uploaded else "#D3D3D3"
-                    st.markdown(f"<span style='color: {color}; font-size: 1.2em;'>{status_icon}</span>", unsafe_allow_html=True)
-                with col2:
-                    text_color = "green" if is_uploaded else "black"
-                    st.markdown(f"<span style='color: {text_color};'>{doc_item['display_name_EN']}</span>", unsafe_allow_html=True)
-                with col3:
-                    st.markdown(f"<span style='color: {text_color};'>{upload_info.get('doc_version', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
-                with col4:
-                    st.markdown(f"<span style='color: {text_color};'>{upload_info.get('maturity', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
+                is_uploaded = bool(upload_info)
+                status_icon, color, text_color = ("✔️", "green", "green") if is_uploaded else ("❌", "#D3D3D3", "black")
+                col1.markdown(f"<span style='color: {color}; font-size: 1.2em;'>{status_icon}</span>", unsafe_allow_html=True)
+                col2.markdown(f"<span style='color: {text_color};'>{doc_item['display_name_EN']}</span>", unsafe_allow_html=True)
+                col3.markdown(f"<span style='color: {text_color};'>{upload_info.get('doc_version', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
+                col4.markdown(f"<span style='color: {text_color};'>{upload_info.get('maturity', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
     
-    # Sidebar Elements
     st.sidebar.markdown("---")
     total_required_docs = len(REQUIRED_DOC_ITEMS)
     unique_uploaded_docs_count_current_release = len(release_uploads)
-    
     if total_required_docs > 0:
         progress_percent = (unique_uploaded_docs_count_current_release / total_required_docs) * 100
         st.sidebar.progress(progress_percent / 100, text=f"Release '{release_to_display_final}': {unique_uploaded_docs_count_current_release} / {total_required_docs}")
-
     if unique_uploaded_docs_count_current_release == total_required_docs and total_required_docs > 0:
         st.sidebar.success(f"🎉 All documents for Release '{release_to_display_final}' uploaded!")
 
@@ -430,8 +382,7 @@ def render_document_overview_page():
         if release_to_reset and release_to_reset in st.session_state.all_release_uploads:
             del st.session_state.all_release_uploads[release_to_reset]
             st.sidebar.success(f"Uploads for Release '{release_to_reset}' have been reset.")
-            if st.session_state.overview_selected_release == release_to_reset:
-                st.session_state.overview_selected_release = None 
+            if st.session_state.overview_selected_release == release_to_reset: st.session_state.overview_selected_release = None 
             st.rerun()
         elif release_to_reset: st.sidebar.info(f"No uploads to reset for Release '{release_to_reset}'.")
         else: st.sidebar.warning("No release selected in overview to reset.")
@@ -439,7 +390,6 @@ def render_document_overview_page():
 # --- Main App Logic for Page Selection and Rendering ---
 st.sidebar.title("Navigation")
 page_options = ["Upload Document", "Document Overview"]
-
 try:
     current_page_index = page_options.index(st.session_state.current_page)
 except ValueError:
@@ -447,7 +397,7 @@ except ValueError:
     st.session_state.current_page = page_options[0]
 
 st.session_state.current_page = st.sidebar.radio(
-    "Menu", page_options, index=current_page_index, key="main_nav_final_v3"
+    "Menu", page_options, index=current_page_index, key="main_nav_final_v3_fixed"
 )
 
 if st.session_state.current_page == "Upload Document":
@@ -460,8 +410,7 @@ with st.sidebar.expander("📜 Upload Log", expanded=False):
         if os.path.exists(LOG_FILE):
             with open(LOG_FILE, "r", encoding="utf-8") as log_f_read:
                 log_data = log_f_read.read()
-                if log_data:
-                    st.text_area("Log:", log_data, height=200, disabled=True, key="log_view_final_v3")
+                if log_data: st.text_area("Log:", log_data, height=200, disabled=True, key="log_view_final_v3_fixed")
                 else: st.info("Log is empty.")
         else: st.info("No uploads logged yet.")
     except Exception as e: st.error(f"Error reading log file: {e}")
