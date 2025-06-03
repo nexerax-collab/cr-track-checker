@@ -460,3 +460,8 @@ with st.sidebar.expander("📜 Upload Log", expanded=False):
         if os.path.exists(LOG_FILE):
             with open(LOG_FILE, "r", encoding="utf-8") as log_f_read:
                 log_data = log_f_read.read()
+                if log_data:
+                    st.text_area("Log:", log_data, height=200, disabled=True, key="log_view_final_v3")
+                else: st.info("Log is empty.")
+        else: st.info("No uploads logged yet.")
+    except Exception as e: st.error(f"Error reading log file: {e}")
