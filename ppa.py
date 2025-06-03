@@ -5,12 +5,13 @@ import zipfile # For handling ZIP files
 import io      # For handling byte streams with ZIP files
 
 # --- Configuration and Constants ---
+# NOTE: expected_base_filename is now also in English for consistency
 REQUIRED_DOC_ITEMS = [
     # Project Management
     {"id": "PRA", "display_name_EN": "Project Risk Analysis", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "ProjectRiskAnalysis"},
     {"id": "ERN", "display_name_EN": "External Release Notes", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "ExternalReleaseNotes"},
     {"id": "RNK", "display_name_EN": "Release Notes (with KPIs)", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "ReleaseNotesKPIs"},
-    {"id": "CNE", "display_name_EN": "Compliance Evidence (UNECE, FuSi, E/E)", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "ComplianceEvidence_UNECE_FuSi_EE"},
+    {"id": "CNE", "display_name_EN": "Compliance Evidence (UNECE, FuSi, E/E)", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "ComplianceEvidenceUNECEFuSiEE"}, # Shortened for path safety
     {"id": "PHB", "display_name_EN": "Project Handbook", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "ProjectHandbook"},
     {"id": "FOS", "display_name_EN": "FOSS Documentation/Ticket", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "FOSSDocumentation"},
     {"id": "PBM", "display_name_EN": "Proof of BsM Relevance", "department_code": "PM", "department_name_EN": "Project Management", "expected_base_filename": "ProofOfBsMRelevance"},
@@ -18,7 +19,7 @@ REQUIRED_DOC_ITEMS = [
     # Requirements Management (System & Software)
     {"id": "SRA", "display_name_EN": "System Requirements Analysis", "department_code": "REQ", "department_name_EN": "Requirements Management", "expected_base_filename": "SystemRequirementsAnalysis"},
     {"id": "SRBID", "display_name_EN": "Software Requirements Baseline ID", "department_code": "REQ", "department_name_EN": "Requirements Management", "expected_base_filename": "SoftwareRequirementsBaselineID"},
-    {"id": "SREXP", "display_name_EN": "Software Requirements Export (DOORS)", "department_code": "REQ", "department_name_EN": "Requirements Management", "expected_base_filename": "SoftwareRequirementsExport_DOORS"},
+    {"id": "SREXP", "display_name_EN": "Software Requirements Export (DOORS)", "department_code": "REQ", "department_name_EN": "Requirements Management", "expected_base_filename": "SoftwareRequirementsExportDOORS"}, # Shortened
     {"id": "SRDEV", "display_name_EN": "Software Requirements Deviation Report", "department_code": "REQ", "department_name_EN": "Requirements Management", "expected_base_filename": "SoftwareRequirementsDeviationReport"},
 
     # Architecture
@@ -28,46 +29,47 @@ REQUIRED_DOC_ITEMS = [
     # Test & Validation
     {"id": "TSTR", "display_name_EN": "Test Status Report", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "TestStatusReport"},
     {"id": "TBER", "display_name_EN": "Test Report", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "TestReport"},
-    {"id": "SWE4S", "display_name_EN": "SWE.4 Specification (DOORS Export)", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "SWE4_Specification"},
-    {"id": "SWE5S", "display_name_EN": "SWE.5 Specification (DOORS Export)", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "SWE5_Specification"},
-    {"id": "SWE6S", "display_name_EN": "SWE.6 Specification (DOORS Export)", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "SWE6_Specification"},
+    {"id": "SWE4S", "display_name_EN": "SWE.4 Specification (DOORS Export)", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "SWE4Specification"},
+    {"id": "SWE5S", "display_name_EN": "SWE.5 Specification (DOORS Export)", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "SWE5Specification"},
+    {"id": "SWE6S", "display_name_EN": "SWE.6 Specification (DOORS Export)", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "SWE6Specification"},
     {"id": "TRISK", "display_name_EN": "Test Risk Analysis", "department_code": "TEST", "department_name_EN": "Test & Validation", "expected_base_filename": "TestRiskAnalysis"},
 
     # Issue & Defect Management
     {"id": "CIL", "display_name_EN": "Comprehensive Issue List (CRs, Bugs, etc.)", "department_code": "ISSUE", "department_name_EN": "Issue & Defect Management", "expected_base_filename": "ComprehensiveIssueList"},
     {"id": "KEL", "display_name_EN": "Known Error List (from Release Notes)", "department_code": "ISSUE", "department_name_EN": "Issue & Defect Management", "expected_base_filename": "KnownErrorList"},
-    {"id": "ODD", "display_name_EN": "List of Open Documentation Defects (with justification)", "department_code": "ISSUE", "department_name_EN": "Issue & Defect Management", "expected_base_filename": "OpenDocumentationDefects"},
-    {"id": "OAPD", "display_name_EN": "List of Open Accepted Product Defects (with justification)", "department_code": "ISSUE", "department_name_EN": "Issue & Defect Management", "expected_base_filename": "OpenAcceptedProductDefects"},
+    {"id": "ODD", "display_name_EN": "List of Open Documentation Defects", "department_code": "ISSUE", "department_name_EN": "Issue & Defect Management", "expected_base_filename": "OpenDocumentationDefects"}, # Simplified
+    {"id": "OAPD", "display_name_EN": "List of Open Accepted Product Defects", "department_code": "ISSUE", "department_name_EN": "Issue & Defect Management", "expected_base_filename": "OpenAcceptedProductDefects"}, # Simplified
 
     # Security
     {"id": "SECRBID", "display_name_EN": "Security Requirements Baseline ID", "department_code": "SEC", "department_name_EN": "Security", "expected_base_filename": "SecurityRequirementsBaselineID"},
-    {"id": "SECREXP", "display_name_EN": "Security Requirements Export (DOORS)", "department_code": "SEC", "department_name_EN": "Security", "expected_base_filename": "SecurityRequirementsExport_DOORS"},
+    {"id": "SECREXP", "display_name_EN": "Security Requirements Export (DOORS)", "department_code": "SEC", "department_name_EN": "Security", "expected_base_filename": "SecurityRequirementsExportDOORS"}, #Shortened
     {"id": "SECCN", "display_name_EN": "Security Compliance Evidence", "department_code": "SEC", "department_name_EN": "Security", "expected_base_filename": "SecurityComplianceEvidence"},
 
     # Configuration Management
     {"id": "LOTU", "display_name_EN": "List of Used Tools (HW & SW, versions)", "department_code": "CM", "department_name_EN": "Configuration Management", "expected_base_filename": "ListOfUsedTools"},
-    {"id": "KMSR", "display_name_EN": "Configuration Management (CM) Status Report", "department_code": "CM", "department_name_EN": "Configuration Management", "expected_base_filename": "CM_StatusReport"},
+    {"id": "KMSR", "display_name_EN": "Configuration Management (CM) Status Report", "department_code": "CM", "department_name_EN": "Configuration Management", "expected_base_filename": "CMStatusReport"},
 
     # Quality Assurance
     {"id": "QAR", "display_name_EN": "Quality Assessment Report", "department_code": "QA", "department_name_EN": "Quality Assurance", "expected_base_filename": "QualityAssessmentReport"},
-    {"id": "TRSF", "display_name_EN": "TRS Final Report", "department_code": "QA", "department_name_EN": "Quality Assurance", "expected_base_filename": "TRS_FinalReport"},
-    {"id": "KGFC", "display_name_EN": "KGAS & Formula Q Conformance Confirmation", "department_code": "QA", "department_name_EN": "Quality Assurance", "expected_base_filename": "KGAS_FormulaQ_Confirmation"},
-    {"id": "KGDE", "display_name_EN": "KGAS Data Export (Excel)", "department_code": "QA", "department_name_EN": "Quality Assurance", "expected_base_filename": "KGAS_DataExport"},
+    {"id": "TRSF", "display_name_EN": "TRS Final Report", "department_code": "QA", "department_name_EN": "Quality Assurance", "expected_base_filename": "TRSFinalReport"},
+    {"id": "KGFC", "display_name_EN": "KGAS & Formula Q Conformance Confirmation", "department_code": "QA", "department_name_EN": "Quality Assurance", "expected_base_filename": "KGASFormulaQConfirmation"}, # Shortened
+    {"id": "KGDE", "display_name_EN": "KGAS Data Export (Excel)", "department_code": "QA", "department_name_EN": "Quality Assurance", "expected_base_filename": "KGASDataExport"},
 ]
 LOG_FILE = "uploads.log"
 OUTPUT_BASE_FOLDER = "output_folder"
 ALLOWED_FILE_TYPES = ["pdf", "zip"]
 
 # --- Global Page Configuration ---
-st.set_page_config(page_title="Document Upload Tool", layout="centered")
+st.set_page_config(page_title="Release Baseline Upload Tool", layout="centered")
 
 # --- Session State Initialization ---
 def init_session_state():
     defaults = {
         'current_page': "Upload Document",
-        'all_release_uploads': {}, # Stores {release_name: [doc_id1, doc_id2]}
-        'current_active_release': "Default_Release_V1.0", # Default active release
-        'selected_for_upload_id': None
+        'all_release_uploads': {}, 
+        'current_active_release': "Default_Release_V1.0",
+        'selected_for_upload_id': None,
+        'overview_selected_release': None # For the overview page's release selector
     }
     for key, value in defaults.items():
         if key not in st.session_state:
@@ -93,12 +95,16 @@ def save_and_log_file(uploaded_file_obj, active_release_name, doc_item_config):
     elif original_extension.lower() == ".zip":
         try:
             with zipfile.ZipFile(io.BytesIO(file_bytes), 'r') as z:
+                # expected_pdf_in_zip_basename must use the English version now
                 expected_pdf_in_zip_basename = (doc_item_config['expected_base_filename'] + ".pdf").lower()
                 found_pdf_path_in_zip = None
+
                 for name_in_zip in z.namelist():
+                    # Match only the basename, ignore paths within ZIP
                     if os.path.basename(name_in_zip).lower() == expected_pdf_in_zip_basename:
                         found_pdf_path_in_zip = name_in_zip
                         break
+                
                 if found_pdf_path_in_zip:
                     final_file_content_to_save = z.read(found_pdf_path_in_zip)
                     st.info(f"Extracted '{os.path.basename(found_pdf_path_in_zip)}' from uploaded ZIP '{uploaded_filename}'.")
@@ -120,18 +126,14 @@ def save_and_log_file(uploaded_file_obj, active_release_name, doc_item_config):
         return None, None
 
     try:
-        # Version string for filename is the active_release_name itself, cleaned
-        clean_version_for_filename = active_release_name.replace(" ", "_").replace("/", "-")
+        clean_version_for_filename = active_release_name.replace(" ", "_").replace("/", "-").replace("\\", "").replace(":", "")
         safe_base_filename = doc_item_config['expected_base_filename'].replace(" ", "_").replace("/", "-").replace(".", "")
         
         new_base_name = f"{doc_item_config['department_code']}_{safe_base_filename}_{clean_version_for_filename}"
-        new_filename = f"{new_base_name}{final_target_extension}" # Should be .pdf
+        new_filename = f"{new_base_name}{final_target_extension}"
         
-        # Sanitize active_release_name for use as a folder name
-        safe_release_folder_name = active_release_name.replace(" ", "_").replace("/", "-").replace("\\", "-").replace(":", "-")
-
+        safe_release_folder_name = active_release_name.replace(" ", "_").replace("/", "-").replace("\\", "").replace(":", "")
         target_dir_department_name = doc_item_config['department_name_EN'].replace(" & ", "_and_").replace(" ", "")
-        # Path: output_folder/RELEASE_NAME/DepartmentName/BaseFilename/
         target_dir = os.path.join(OUTPUT_BASE_FOLDER, safe_release_folder_name, target_dir_department_name, safe_base_filename)
         os.makedirs(target_dir, exist_ok=True)
         save_path = os.path.join(target_dir, new_filename)
@@ -151,21 +153,19 @@ def save_and_log_file(uploaded_file_obj, active_release_name, doc_item_config):
 def render_upload_document_page():
     st.markdown("<h1 style='text-align: center; color: #4A4A4A; margin-bottom: 20px;'>Upload Document</h1>", unsafe_allow_html=True)
 
-    # Active Release Context Input
-    st.markdown("#### Current Active Release Context")
+    st.markdown("#### Current Active Release for Uploads")
     new_active_release = st.text_input(
-        "Define or switch active Release (e.g., ProjectOmega_Sprint3_RC1). All uploads will be associated with this release:",
+        "Define or switch active Release (e.g., ProjectOmega_Sprint3_RC1). New uploads will be associated with this release:",
         value=st.session_state.current_active_release,
-        key="active_release_text_input_main"
+        key="active_release_text_input_main_en"
     )
     if new_active_release != st.session_state.current_active_release:
         st.session_state.current_active_release = new_active_release
-        st.session_state.selected_for_upload_id = None # Reset template selection on release change
-        for item_cfg in REQUIRED_DOC_ITEMS: # Clear all uploader states
+        st.session_state.selected_for_upload_id = None
+        for item_cfg in REQUIRED_DOC_ITEMS:
             st.session_state[f"uploader_{item_cfg['id']}"] = None
         st.rerun()
-    st.markdown(f"**All uploads will be processed for Release: `{st.session_state.current_active_release}`**")
-
+    st.markdown(f"**All new uploads will be processed for Release: `{st.session_state.current_active_release}`**")
 
     st.markdown("---")
     st.markdown("### ① Select Document Template")
@@ -184,7 +184,7 @@ def render_upload_document_page():
         "Select the document type you want to upload:",
         options=options_keys_list,
         format_func=lambda id_key: select_options[id_key],
-        key="sb_template_select_multi_release",
+        key="sb_template_select_multi_release_en",
         index=current_selection_index
     )
     if selected_id != st.session_state.selected_for_upload_id:
@@ -201,7 +201,7 @@ def render_upload_document_page():
             
             uploader_key_specific = f"uploader_{current_doc_item['id']}"
             help_text_uploader = (f"Please upload the document as a PDF file. "
-                                  f"Alternatively, you can upload a ZIP file containing a PDF named "
+                                  f"Alternatively, upload a ZIP file containing a PDF named "
                                   f"'{current_doc_item['expected_base_filename']}.pdf'.")
             
             uploaded_file = st.file_uploader(
@@ -214,18 +214,16 @@ def render_upload_document_page():
             if uploaded_file:
                 st.write(f"Selected file: `{uploaded_file.name}` ({uploaded_file.size / 1024:.2f} KB)")
                 
-                # Prospective new filename (always .pdf as target)
-                clean_version_preview = st.session_state.current_active_release.replace(" ", "_").replace("/", "-")
+                clean_version_preview = st.session_state.current_active_release.replace(" ", "_").replace("/", "-").replace("\\", "").replace(":", "")
                 safe_base_filename_preview = current_doc_item['expected_base_filename'].replace(" ", "_").replace("/", "-").replace(".", "")
                 prospective_new_name = f"{current_doc_item['department_code']}_{safe_base_filename_preview}_{clean_version_preview}.pdf"
                 st.info(f"Expected new filename after processing: `{prospective_new_name}`")
 
-                if st.button(f"Confirm Upload for '{current_doc_item['display_name_EN']}'", key=f"btn_confirm_upload_multi_release_{current_doc_item['id']}"):
+                if st.button(f"Confirm Upload for '{current_doc_item['display_name_EN']}'", key=f"btn_confirm_upload_multi_release_en_{current_doc_item['id']}"):
                     processed_doc_id, new_filename = save_and_log_file(uploaded_file, st.session_state.current_active_release, current_doc_item)
                     if processed_doc_id:
                         st.success(f"✅ '{current_doc_item['display_name_EN']}' ('{uploaded_file.name}') successfully processed for Release '{st.session_state.current_active_release}' and saved as '{new_filename}'.")
                         
-                        # Update session state for the current active release
                         active_release = st.session_state.current_active_release
                         if active_release not in st.session_state.all_release_uploads:
                             st.session_state.all_release_uploads[active_release] = []
@@ -239,20 +237,61 @@ def render_upload_document_page():
 def render_document_overview_page():
     st.title("📊 Document Overview")
     
-    # Allow user to see overview for the "current_active_release" (which they can set on the upload page)
-    # or potentially select a different release to view from a dropdown of *existing* releases in the log.
-    # For simplicity now, it just shows for st.session_state.current_active_release
-    
-    st.info(f"Showing overview for Release: **{st.session_state.current_active_release}** "
-            f"(To change the active release for uploads and viewing, go to the 'Upload Document' page).")
+    available_releases = sorted(list(st.session_state.all_release_uploads.keys()), reverse=True)
 
+    # Determine default for selectbox
+    default_overview_release = st.session_state.overview_selected_release
+    if not default_overview_release or default_overview_release not in available_releases: # If previous selection is invalid
+        if st.session_state.current_active_release in available_releases:
+            default_overview_release = st.session_state.current_active_release
+        elif available_releases:
+            default_overview_release = available_releases[0]
+        else:
+            default_overview_release = None # No releases to show
 
-    if not REQUIRED_DOC_ITEMS:
-        st.warning("No target documents configured in the application.")
+    # Store the potentially updated default back to session state if it changed
+    if default_overview_release != st.session_state.overview_selected_release:
+        st.session_state.overview_selected_release = default_overview_release
+        # No rerun here, let the selectbox handle the display update if user interacts
+
+    if not available_releases:
+        st.info("No releases with uploaded documents yet to display. Upload documents on the 'Upload Document' page first.")
+        # Ensure overview_selected_release is None if no releases exist
+        if st.session_state.overview_selected_release is not None:
+            st.session_state.overview_selected_release = None
         return
 
-    active_release_overview = st.session_state.current_active_release
-    uploaded_docs_for_this_release = st.session_state.all_release_uploads.get(active_release_overview, [])
+    # Get current index for selectbox
+    try:
+        current_overview_selection_index = available_releases.index(st.session_state.overview_selected_release) if st.session_state.overview_selected_release else 0
+    except ValueError: # If overview_selected_release is somehow not in available_releases anymore
+        current_overview_selection_index = 0
+        if available_releases: # Check if there's anything to select
+             st.session_state.overview_selected_release = available_releases[0] # Default to first available
+        else: # This case should be caught by "if not available_releases" above
+            st.session_state.overview_selected_release = None
+
+
+    selected_release_for_view = st.selectbox(
+        "Select Release to View:",
+        options=available_releases,
+        index=current_overview_selection_index,
+        key="sb_overview_release_select_en"
+    )
+
+    if selected_release_for_view != st.session_state.overview_selected_release:
+        st.session_state.overview_selected_release = selected_release_for_view
+        st.rerun() # Rerun to update the view for the newly selected release
+
+    release_to_display_final = st.session_state.overview_selected_release
+
+    if not release_to_display_final: # If after all logic, still no release selected (e.g., all_release_uploads was empty)
+        st.info("Please select a release to view its document status.")
+        return # End rendering if no valid release is set for viewing
+
+    st.markdown(f"### Status for Release: **{release_to_display_final}**")
+    
+    uploaded_docs_for_this_release = st.session_state.all_release_uploads.get(release_to_display_final, [])
 
     departments = {}
     for item in REQUIRED_DOC_ITEMS:
@@ -277,31 +316,32 @@ def render_document_overview_page():
                 with col2:
                     st.markdown(f"<span style='color: {text_color};'>{doc_item['display_name_EN']}</span>", unsafe_allow_html=True)
     
+    # Sidebar Elements
     st.sidebar.markdown("---")
     total_required_docs = len(REQUIRED_DOC_ITEMS)
-    # Count unique uploaded docs for the *current active release*
     unique_uploaded_docs_count_current_release = len(uploaded_docs_for_this_release) 
     
     if total_required_docs > 0:
         progress_percent = (unique_uploaded_docs_count_current_release / total_required_docs) * 100
-        st.sidebar.progress(progress_percent / 100, text=f"Release '{active_release_overview}': {unique_uploaded_docs_count_current_release} / {total_required_docs}")
+        st.sidebar.progress(progress_percent / 100, text=f"Release '{release_to_display_final}': {unique_uploaded_docs_count_current_release} / {total_required_docs}")
 
     if unique_uploaded_docs_count_current_release == total_required_docs and total_required_docs > 0:
-        st.sidebar.success(f"🎉 All documents for Release '{active_release_overview}' uploaded!")
+        st.sidebar.success(f"🎉 All documents for Release '{release_to_display_final}' uploaded!")
 
     st.sidebar.markdown("---")
-    if st.sidebar.button("Reset Uploads for Current Release"):
-        active_release_to_reset = st.session_state.current_active_release
-        if active_release_to_reset in st.session_state.all_release_uploads:
-            del st.session_state.all_release_uploads[active_release_to_reset]
-            st.sidebar.success(f"Uploads for Release '{active_release_to_reset}' have been reset.")
+    if st.sidebar.button("Reset Uploads for Viewed Release"):
+        release_to_reset = st.session_state.overview_selected_release # Use the release currently being viewed
+        if release_to_reset and release_to_reset in st.session_state.all_release_uploads:
+            del st.session_state.all_release_uploads[release_to_reset]
+            st.sidebar.success(f"Uploads for Release '{release_to_reset}' have been reset.")
+            # If the reset release was the current one for viewing, try to select another or None
+            if st.session_state.overview_selected_release == release_to_reset:
+                st.session_state.overview_selected_release = None 
+            st.rerun()
+        elif release_to_reset:
+            st.sidebar.info(f"No uploads to reset for Release '{release_to_reset}'.")
         else:
-            st.sidebar.info(f"No uploads to reset for Release '{active_release_to_reset}'.")
-        
-        st.session_state.selected_for_upload_id = None
-        for item_cfg_reset in REQUIRED_DOC_ITEMS: 
-            st.session_state[f"uploader_{item_cfg_reset['id']}"] = None
-        st.rerun()
+            st.sidebar.warning("No release selected in overview to reset.")
 
 # --- Main App Logic for Page Selection and Rendering ---
 st.sidebar.title("Navigation")
@@ -317,7 +357,7 @@ st.session_state.current_page = st.sidebar.radio(
     "Menu",
     page_options,
     index=current_page_index,
-    key="main_nav_radio_multi_release"
+    key="main_nav_radio_final_en"
 )
 
 if st.session_state.current_page == "Upload Document":
@@ -331,7 +371,7 @@ with st.sidebar.expander("📜 Upload Log", expanded=False):
             with open(LOG_FILE, "r", encoding="utf-8") as log_f_read:
                 log_data = log_f_read.read()
                 if log_data:
-                    st.text_area("Log:", log_data, height=200, disabled=True, key="log_view_sidebar_multi_release")
+                    st.text_area("Log:", log_data, height=200, disabled=True, key="log_view_sidebar_final_en")
                 else:
                     st.info("Log is empty.")
         else:
