@@ -66,8 +66,8 @@ st.set_page_config(page_title="Document Upload Tool", layout="centered")
 # --- Session State Initialization ---
 def init_session_state():
     defaults = {
-        'current_page': "Upload Document",
-        'all_release_uploads': {},
+        'current_page': "Upload Document", # Default page
+        'all_release_uploads': {}, 
         'current_active_release': "Default_Release_V1.0",
         'selected_department_for_upload': None,
         'selected_doc_id_for_upload': None,
@@ -76,7 +76,7 @@ def init_session_state():
     for key, value in defaults.items():
         if key not in st.session_state:
             st.session_state[key] = value
-    for item in REQUIRED_DOC_ITEMS:
+    for item in REQUIRED_DOC_ITEMS: 
         st.session_state.setdefault(f"uploader_{item['id']}", None)
         st.session_state.setdefault(f"doc_ver_{item['id']}", "1.0")
         st.session_state.setdefault(f"doc_mat_{item['id']}", MATURITY_OPTIONS[0])
@@ -148,13 +148,24 @@ def save_and_log_file(uploaded_file_obj, active_release_name, doc_item_config, d
 
 # --- Render Functions for "Pages" ---
 def render_upload_document_page():
-    st.markdown("<h1 style='text-align: center; color: #4A4A4A; margin-bottom: 20px;'>Upload Document</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='text-align: center; color: #4A4A4A; margin-bottom: 10px;'>Document Upload for Release Baseline</h1>", unsafe_allow_html=True)
+    st.markdown("""
+    <p style='text-align: center; font-size: 1.0em; color: #333;'>
+    Welcome! This tool is provided by the <strong>Configuration Management Team</strong> to streamline the <strong>Release Baseline Preparation Process</strong>.
+    </p>
+    <p style='text-align: center; margin-bottom: 20px;'>
+    Your timely uploads of the required documents are crucial for establishing a <strong>consistent global baseline</strong> for each release.
+    Please ensure all documents are up-to-date and correctly versioned.
+    </p>
+    """, unsafe_allow_html=True)
 
     st.markdown("#### Current Active Release for Uploads")
+    st.info("Begin by defining the **Active Release Context** below. All subsequent document uploads will be associated with this specific release.")
+    
     new_active_release = st.text_input(
-        "Define or switch active Release (e.g., ProjectOmega_Sprint3_RC1). New uploads are linked to this release:",
+        "Define or switch active Release (e.g., ProjectOmega_Sprint3_RC1):",
         value=st.session_state.current_active_release,
-        key="active_release_text_input_en_v2_fixed" # Ensure key is unique if this function is called multiple times in complex setups (not the case here)
+        key="active_release_text_input_en_v3"
     )
     if new_active_release != st.session_state.current_active_release:
         st.session_state.current_active_release = new_active_release
@@ -166,24 +177,26 @@ def render_upload_document_page():
     st.markdown(f"**All new uploads will be processed for Release: `{st.session_state.current_active_release}`**")
     st.markdown("---")
 
+    # Step 1: Select Department
     st.markdown("### ① Select Department")
     department_names = sorted(list(set(item['department_name_EN'] for item in REQUIRED_DOC_ITEMS)))
     dept_options = {None: "--- Please select a department ---"}
-    for dept_name in department_names: # Use actual name as key for simplicity if names are unique
+    for dept_name in department_names:
         dept_options[dept_name] = dept_name
 
     selected_dept_name = st.selectbox(
         "Select the department:",
         options=list(dept_options.keys()),
         format_func=lambda key: dept_options[key],
-        key="sb_dept_select_en_fixed",
+        key="sb_dept_select_en_v3",
         index=list(dept_options.keys()).index(st.session_state.selected_department_for_upload) if st.session_state.selected_department_for_upload in dept_options else 0
     )
     if selected_dept_name != st.session_state.selected_department_for_upload:
         st.session_state.selected_department_for_upload = selected_dept_name
-        st.session_state.selected_doc_id_for_upload = None
+        st.session_state.selected_doc_id_for_upload = None 
         st.rerun()
 
+    # Step 2: Select Document Template
     if st.session_state.selected_department_for_upload:
         st.markdown("---")
         st.markdown(f"### ② Select Document Template for '{st.session_state.selected_department_for_upload}'")
@@ -204,13 +217,14 @@ def render_upload_document_page():
             "Select the document type:",
             options=doc_template_keys_list,
             format_func=lambda id_key: doc_template_select_options[id_key],
-            key="sb_doc_template_select_en_fixed",
+            key="sb_doc_template_select_en_v3",
             index=current_doc_template_index
         )
         if selected_doc_id != st.session_state.selected_doc_id_for_upload:
             st.session_state.selected_doc_id_for_upload = selected_doc_id
             st.rerun()
 
+    # Step 3 & 4: Metadata Inputs and File Uploader
     if st.session_state.selected_doc_id_for_upload:
         current_doc_item = next((item for item in REQUIRED_DOC_ITEMS if item['id'] == st.session_state.selected_doc_id_for_upload), None)
         if current_doc_item:
@@ -226,14 +240,14 @@ def render_upload_document_page():
                 st.session_state[doc_version_key] = st.text_input(
                     "Document Version (e.g., 1.0, 1.1_beta):", 
                     value=st.session_state[doc_version_key], 
-                    key=f"ti_{doc_version_key}_fixed"
+                    key=f"ti_{doc_version_key}_v3"
                 )
             with col2_meta:
                 st.session_state[doc_maturity_key] = st.selectbox(
                     "Document Maturity:", 
                     options=MATURITY_OPTIONS, 
                     index=MATURITY_OPTIONS.index(st.session_state[doc_maturity_key]),
-                    key=f"sb_{doc_maturity_key}_fixed"
+                    key=f"sb_{doc_maturity_key}_v3"
                 )
             
             help_text_uploader = (f"Upload PDF, or ZIP containing '{current_doc_item['expected_base_filename']}.pdf'.")
@@ -249,7 +263,7 @@ def render_upload_document_page():
                 prospective_new_name = f"{current_doc_item['department_code']}_{safe_base_filename_preview}_{clean_doc_version_preview}_{st.session_state[doc_maturity_key].lower()}.pdf"
                 st.info(f"Expected new filename after processing: `{prospective_new_name}`")
 
-                if st.button(f"Confirm Upload for '{current_doc_item['display_name_EN']}'", key=f"btn_confirm_final_fixed_{current_doc_item['id']}"):
+                if st.button(f"Confirm Upload for '{current_doc_item['display_name_EN']}'", key=f"btn_confirm_final_v3_{current_doc_item['id']}"):
                     doc_id, new_name, saved_path = save_and_log_file(
                         uploaded_file, 
                         st.session_state.current_active_release, 
@@ -275,7 +289,7 @@ def render_upload_document_page():
                         }
                         st.session_state.all_release_uploads[active_release][doc_id] = upload_details
                         
-                        # TEMPORARY WORKAROUND for Python 3.13 issue: Comment out uploader reset
+                        # WORKAROUND for Python 3.13 issue: Comment out uploader reset
                         # st.session_state[uploader_key_specific] = None 
                         st.session_state.selected_doc_id_for_upload = None 
                         st.session_state.selected_department_for_upload = None 
@@ -302,36 +316,43 @@ def generate_csv_data(release_name_to_export):
 
 def render_document_overview_page():
     st.title("📊 Document Overview")
-    available_releases = sorted(list(st.session_state.all_release_uploads.keys()), reverse=True)
-
-    default_overview_release = st.session_state.overview_selected_release
-    if not default_overview_release or default_overview_release not in available_releases:
-        if st.session_state.current_active_release in available_releases: default_overview_release = st.session_state.current_active_release
-        elif available_releases: default_overview_release = available_releases[0]
-        else: default_overview_release = None
-
-    if default_overview_release != st.session_state.overview_selected_release:
-        st.session_state.overview_selected_release = default_overview_release
     
+    available_releases = sorted(list(st.session_state.all_release_uploads.keys()), reverse=True) # Show newest first potentially
+
+    # Initialize overview_selected_release if it's not valid or not set
+    if not st.session_state.overview_selected_release or st.session_state.overview_selected_release not in available_releases:
+        if st.session_state.current_active_release in available_releases:
+            st.session_state.overview_selected_release = st.session_state.current_active_release
+        elif available_releases:
+            st.session_state.overview_selected_release = available_releases[0]
+        else:
+            st.session_state.overview_selected_release = None # No release to select
+
     if not available_releases:
-        st.info("No releases with uploaded documents yet. Upload documents on the 'Upload Document' page.")
-        if st.session_state.overview_selected_release is not None: st.session_state.overview_selected_release = None
+        st.info("No releases with uploaded documents yet. Upload documents on the 'Upload Document' page first.")
         return
 
+    # Selectbox for choosing release to view
     col1_view, col2_export = st.columns([3,1])
     with col1_view:
+        # Ensure index is valid
+        idx = 0
+        if st.session_state.overview_selected_release and st.session_state.overview_selected_release in available_releases :
+             idx = available_releases.index(st.session_state.overview_selected_release)
+
         selected_release_for_view = st.selectbox(
             "Select Release to View:", options=available_releases,
-            index=available_releases.index(st.session_state.overview_selected_release) if st.session_state.overview_selected_release in available_releases else 0,
-            key="sb_overview_release_select_en_v2_fixed"
+            index=idx,
+            key="sb_overview_release_select_en_v3"
         )
+    
     if selected_release_for_view != st.session_state.overview_selected_release:
         st.session_state.overview_selected_release = selected_release_for_view
-        st.rerun()
+        st.rerun() # Rerun to update the view for the newly selected release
 
     release_to_display_final = st.session_state.overview_selected_release
-    if not release_to_display_final:
-        st.info("Please select a release to view its document status.")
+    if not release_to_display_final: # Should be caught by 'if not available_releases'
+        st.info("Please select a release to view its document status or upload documents first.")
         return
 
     with col2_export:
@@ -341,7 +362,7 @@ def render_document_overview_page():
         st.download_button(
             label="📥 Export to CSV", data=csv_df.to_csv(index=False, sep=';').encode('utf-8-sig'),
             file_name=f"document_overview_{release_to_display_final.replace(' ','_')}.csv", mime='text/csv',
-            key=f"download_csv_fixed_{release_to_display_final}"
+            key=f"download_csv_v3_{release_to_display_final}" # Make key unique per release for caching
         )
 
     st.markdown(f"### Status for Release: **{release_to_display_final}**")
@@ -359,14 +380,15 @@ def render_document_overview_page():
             c1.markdown("**Status**"); c2.markdown("**Document Template**"); c3.markdown("**Version**"); c4.markdown("**Maturity**")
             for doc_item in docs_in_dept:
                 upload_info = release_uploads.get(doc_item['id'])
-                col1, col2, col3, col4 = st.columns([1, 5, 2, 2])
+                col1_i, col2_i, col3_i, col4_i = st.columns([1, 5, 2, 2]) # Use different var names
                 is_uploaded = bool(upload_info)
                 status_icon, color, text_color = ("✔️", "green", "green") if is_uploaded else ("❌", "#D3D3D3", "black")
-                col1.markdown(f"<span style='color: {color}; font-size: 1.2em;'>{status_icon}</span>", unsafe_allow_html=True)
-                col2.markdown(f"<span style='color: {text_color};'>{doc_item['display_name_EN']}</span>", unsafe_allow_html=True)
-                col3.markdown(f"<span style='color: {text_color};'>{upload_info.get('doc_version', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
-                col4.markdown(f"<span style='color: {text_color};'>{upload_info.get('maturity', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
+                col1_i.markdown(f"<span style='color: {color}; font-size: 1.2em;'>{status_icon}</span>", unsafe_allow_html=True)
+                col2_i.markdown(f"<span style='color: {text_color};'>{doc_item['display_name_EN']}</span>", unsafe_allow_html=True)
+                col3_i.markdown(f"<span style='color: {text_color};'>{upload_info.get('doc_version', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
+                col4_i.markdown(f"<span style='color: {text_color};'>{upload_info.get('maturity', 'N/A') if upload_info else 'N/A'}</span>", unsafe_allow_html=True)
     
+    # Sidebar Elements
     st.sidebar.markdown("---")
     total_required_docs = len(REQUIRED_DOC_ITEMS)
     unique_uploaded_docs_count_current_release = len(release_uploads)
@@ -387,30 +409,65 @@ def render_document_overview_page():
         elif release_to_reset: st.sidebar.info(f"No uploads to reset for Release '{release_to_reset}'.")
         else: st.sidebar.warning("No release selected in overview to reset.")
 
+def render_learning_resources_page():
+    st.title("📚 Learning Resources")
+    st.markdown("""
+    Here are some (placeholder) resources to help you with the release baseline process, 
+    configuration management, and document standards. 
+    **Please replace the '#' with actual links.**
+    """)
+
+    st.subheader("Internal Resources (Examples)")
+    st.markdown("""
+    * [Configuration Management Process Document](#)
+    * [Document Naming Conventions Guide](#)
+    * [Release Management Policy](#)
+    * [Guide to Document Versioning and Maturity](#)
+    """)
+
+    st.subheader("External Best Practices (Examples)")
+    st.markdown("""
+    * [Best Practices in Configuration Management (Example Article)](#)
+    * [Guide to Effective Version Control (Example)](#)
+    * [Understanding Document Maturity Levels (Example)](#)
+    """)
+
+    st.subheader("Tool Specific Guides (Examples)")
+    st.markdown("""
+    * [How to Create Accessible PDF Documents](#)
+    * [Tips for Using ZIP Archives Effectively](#)
+    """)
+    st.info("This page is a placeholder. Please provide actual links for these resources.")
+
 # --- Main App Logic for Page Selection and Rendering ---
-st.sidebar.title("Navigation")
-page_options = ["Upload Document", "Document Overview"]
+st.sidebar.title("Menu") # Changed from "Navigation"
+page_options = ["Upload Document", "Document Overview", "Learning Resources"] # Added new page
 try:
     current_page_index = page_options.index(st.session_state.current_page)
-except ValueError:
+except ValueError: # If current_page is somehow invalid, default to first page
     current_page_index = 0 
     st.session_state.current_page = page_options[0]
 
 st.session_state.current_page = st.sidebar.radio(
-    "Menu", page_options, index=current_page_index, key="main_nav_final_v3_fixed"
+    "Select Page:", # Changed label
+    page_options, 
+    index=current_page_index, 
+    key="main_nav_final_v4"
 )
 
 if st.session_state.current_page == "Upload Document":
     render_upload_document_page()
 elif st.session_state.current_page == "Document Overview":
     render_document_overview_page()
+elif st.session_state.current_page == "Learning Resources":
+    render_learning_resources_page()
 
 with st.sidebar.expander("📜 Upload Log", expanded=False):
     try:
         if os.path.exists(LOG_FILE):
             with open(LOG_FILE, "r", encoding="utf-8") as log_f_read:
                 log_data = log_f_read.read()
-                if log_data: st.text_area("Log:", log_data, height=200, disabled=True, key="log_view_final_v3_fixed")
+                if log_data: st.text_area("Log:", log_data, height=200, disabled=True, key="log_view_final_v4")
                 else: st.info("Log is empty.")
         else: st.info("No uploads logged yet.")
     except Exception as e: st.error(f"Error reading log file: {e}")
