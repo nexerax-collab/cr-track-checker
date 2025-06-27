@@ -57,7 +57,7 @@ init_session_state()
 
 def perform_ocr(file_bytes: bytes) -> str:
     """Performs OCR on a PDF if it's image-based."""
-    st.info("Standard text extraction failed. Attempting OCR on the document. This might be slow for large files.")
+    st.info("Standard text extraction failed. Attempting OCR on the document. This may be slow for large files.")
     try:
         images = convert_from_bytes(file_bytes)
         ocr_text = ""
@@ -188,20 +188,27 @@ def render_upload_page():
     """Renders the main page for uploading and analyzing documents."""
     st.title("📄 AI-Powered Document Classification & Tagging")
     
-    # Check for API Key at the beginning
-    api_key_configured = "google_api_key" in st.secrets and st.secrets["google_api_key"]
-    
+    # Check for API Key at the beginning using a try-except block
+    api_key_configured = False
+    try:
+        # This is the standard way to check for a secret in Streamlit
+        if st.secrets["google_api_key"]:
+            api_key_configured = True
+    except KeyError:
+        # This error occurs if the secret is not set at all
+        api_key_configured = False
+
     if not api_key_configured:
-        st.error("🚨 Google AI API Key not found!")
+        st.error("🚨 Google AI API Key not configured!")
         st.markdown("""
-            Please configure your API key by creating a `secrets.toml` file in a `.streamlit` directory.
+            Please add your `google_api_key` to your Streamlit secrets for this app.
             
-            **Example `/.streamlit/secrets.toml` file:**
-            ```toml
-            google_api_key = "YOUR_API_KEY_HERE"
-            ```
-            After adding the secret, you may need to restart the Streamlit app.
-            You can get an API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+            **On Streamlit Community Cloud:**
+            1. Go to your app's dashboard.
+            2. Click on **Settings** > **Secrets**.
+            3. Add your key like this: `google_api_key = "YOUR_API_KEY_HERE"`
+            
+            The app will not function until the secret is set.
         """)
         return # Stop rendering the rest of the page if no key
 
