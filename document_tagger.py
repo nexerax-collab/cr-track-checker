@@ -46,7 +46,6 @@ def init_session_state():
     """Initializes session state variables if they don't exist."""
     defaults = {
         'processed_documents': {},
-        'google_api_key': None,
         'edit_mode': {} # Tracks which document is in edit mode, e.g., {'filename.pdf': True}
     }
     for key, value in defaults.items():
@@ -180,10 +179,7 @@ def get_gemini_response(api_key: str, text_content: str) -> dict | None:
         st.error(f"AI analysis was stopped. This can happen if the content is flagged by safety filters. Details: {e}")
         return None
     except Exception as e:
-        if "API_KEY_INVALID" in str(e):
-            st.error("The provided Google AI API Key is invalid. Please check and re-enter it in the sidebar.")
-        else:
-            st.error(f"An error occurred with the AI analysis: {e}")
+        st.error(f"An error occurred with the AI analysis: {e}. This might be due to an invalid API key, network issues, or API limits.")
         return None
 
 # --- UI Rendering Functions ---
@@ -192,9 +188,26 @@ def render_upload_page():
     """Renders the main page for uploading and analyzing documents."""
     st.title("📄 AI-Powered Document Classification & Tagging")
     
+    # Check for API Key at the beginning
+    api_key_configured = "google_api_key" in st.secrets and st.secrets["google_api_key"]
+    
+    if not api_key_configured:
+        st.error("🚨 Google AI API Key not found!")
+        st.markdown("""
+            Please configure your API key by creating a `secrets.toml` file in a `.streamlit` directory.
+            
+            **Example `/.streamlit/secrets.toml` file:**
+            ```toml
+            google_api_key = "YOUR_API_KEY_HERE"
+            ```
+            After adding the secret, you may need to restart the Streamlit app.
+            You can get an API key from [Google AI Studio](https://aistudio.google.com/app/apikey).
+        """)
+        return # Stop rendering the rest of the page if no key
+
     st.markdown("""
     ### Welcome! Make Your Document Management Smarter.
-    This tool, powered by Google's Gemini AI, helps you automatically process and organize your technical documents.
+    This tool uses Google's Gemini AI to automatically process and organize your technical documents.
     
     **Why is this helpful?**
     - **Saves Time:** Instantly categorize documents that would otherwise require manual review.
@@ -204,71 +217,65 @@ def render_upload_page():
     - **Handles Scanned Documents:** Includes Optical Character Recognition (OCR) to read text from image-based PDFs.
     
     **How to get started:**
-    1.  **Enter API Key:** Provide your Google AI API key in the sidebar.
-    2.  **(One-Time OCR Setup):** For scanned documents, you must install Tesseract OCR on your system. See instructions [here](https://tesseract-ocr.github.io/tessdoc/Installation.html). You also need to install `poppler`.
-    3.  **Upload:** Drag and drop your documents below.
-    4.  **Analyze:** Click "Start Analysis" and let the AI do the work.
+    1.  **(One-Time OCR Setup):** For scanned documents, you must install Tesseract OCR on your system. See instructions [here](https://tesseract-ocr.github.io/tessdoc/Installation.html). You also need to install `poppler`.
+    2.  **Upload:** Drag and drop your documents below.
+    3.  **Analyze:** Click "Start Analysis" and let the AI do the work.
     """)
     
-    # Updated file uploader to accept new types
     uploaded_files = st.file_uploader(
         "Upload PDF, Word, Excel, or Text files", 
         type=['pdf', 'docx', 'xlsx', 'txt'], 
         accept_multiple_files=True
     )
     
-    if st.button("Start Analysis", disabled=(not uploaded_files or not st.session_state.google_api_key)):
-        if not uploaded_files: st.warning("Please upload at least one file.")
-        if not st.session_state.google_api_key: st.warning("Please enter your Google AI API key in the sidebar.")
-        if uploaded_files and st.session_state.google_api_key:
-            with st.spinner("Analyzing documents... This may take a moment."):
-                for file in uploaded_files:
-                    if file.name in st.session_state.processed_documents:
-                        st.info(f"'{file.name}' has already been processed. Skipping.")
-                        continue
-                    
-                    st.write(f"--- \n**Processing: {file.name}**")
-                    file_bytes = file.getvalue()
-                    
-                    # Determine file type and call appropriate extraction function
-                    text = ""
-                    file_extension = os.path.splitext(file.name)[1].lower()
-                    
-                    if file_extension == ".pdf":
-                        text = extract_text_from_pdf(file_bytes)
-                    elif file_extension == ".docx":
-                        text = extract_text_from_docx(file_bytes)
-                    elif file_extension == ".xlsx":
-                        text = extract_text_from_xlsx(file_bytes)
-                    elif file_extension == ".txt":
-                        text = extract_text_from_txt(file_bytes)
+    if st.button("Start Analysis", disabled=(not uploaded_files)):
+        with st.spinner("Analyzing documents... This may take a moment."):
+            for file in uploaded_files:
+                if file.name in st.session_state.processed_documents:
+                    st.info(f"'{file.name}' has already been processed. Skipping.")
+                    continue
+                
+                st.write(f"--- \n**Processing: {file.name}**")
+                file_bytes = file.getvalue()
+                
+                text = ""
+                file_extension = os.path.splitext(file.name)[1].lower()
+                
+                if file_extension == ".pdf":
+                    text = extract_text_from_pdf(file_bytes)
+                elif file_extension == ".docx":
+                    text = extract_text_from_docx(file_bytes)
+                elif file_extension == ".xlsx":
+                    text = extract_text_from_xlsx(file_bytes)
+                elif file_extension == ".txt":
+                    text = extract_text_from_txt(file_bytes)
 
-                    if text:
-                        ai_result = get_gemini_response(st.session_state.google_api_key, text)
-                        if ai_result:
-                            confidence = ai_result.get("confidence_score", 0)
-                            status = "Auto-Classified" if confidence >= 50 else "Needs Verification"
-                            st.session_state.processed_documents[file.name] = {
-                                "filename": file.name, "category": ai_result.get("category", "N/A"),
-                                "confidence": confidence, "tags": ai_result.get("tags", []),
-                                "reasoning": ai_result.get("reasoning", "No reasoning provided."),
-                                "status": status, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            }
-                            st.success(f"'{file.name}' analyzed. Status: {status}")
-                        else:
-                            st.session_state.processed_documents[file.name] = {
-                                "filename": file.name, "category": "Error", "confidence": 0, "tags": [],
-                                "reasoning": "AI analysis failed. Please review manually.", "status": "Error",
-                                "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
-                            }
+                if text:
+                    ai_result = get_gemini_response(st.secrets["google_api_key"], text)
+                    if ai_result:
+                        confidence = ai_result.get("confidence_score", 0)
+                        status = "Auto-Classified" if confidence >= 50 else "Needs Verification"
+                        st.session_state.processed_documents[file.name] = {
+                            "filename": file.name, "category": ai_result.get("category", "N/A"),
+                            "confidence": confidence, "tags": ai_result.get("tags", []),
+                            "reasoning": ai_result.get("reasoning", "No reasoning provided."),
+                            "status": status, "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                        }
+                        st.success(f"'{file.name}' analyzed. Status: {status}")
                     else:
                         st.session_state.processed_documents[file.name] = {
-                            "filename": file.name, "category": "Unreadable", "confidence": 0, "tags": [],
-                            "reasoning": f"Could not extract text from the {file_extension} file. It might be empty, corrupted, or require special handling (e.g., OCR).",
-                            "status": "Error",
+                            "filename": file.name, "category": "Error", "confidence": 0, "tags": [],
+                            "reasoning": "AI analysis failed. Please review manually.", "status": "Error",
                             "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
                         }
-            st.success("Analysis complete! Check the 'Classification Results' page for details.")
+                else:
+                    st.session_state.processed_documents[file.name] = {
+                        "filename": file.name, "category": "Unreadable", "confidence": 0, "tags": [],
+                        "reasoning": f"Could not extract text from the {file_extension} file. It might be empty, corrupted, or require special handling (e.g., OCR).",
+                        "status": "Error",
+                        "timestamp": datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+                    }
+        st.success("Analysis complete! Check the 'Classification Results' page for details.")
 
 def render_results_page():
     """Renders the page displaying the classification results."""
@@ -328,15 +335,9 @@ def render_results_page():
 
 # --- Main App Logic ---
 
-with st.sidebar:
-    st.header("Configuration")
-    api_key_input = st.text_input("Enter your Google AI API Key", type="password", key="google_api_key_input")
-    if api_key_input:
-        st.session_state.google_api_key = api_key_input
-        st.success("API Key set successfully!")
-
-    st.sidebar.title("Navigation")
-    app_mode = st.sidebar.radio("Choose a page:", ["Upload Document", "Classification Results"])
+# Removed the API Key input from the sidebar. The app now relies on st.secrets.
+st.sidebar.title("Navigation")
+app_mode = st.sidebar.radio("Choose a page:", ["Upload Document", "Classification Results"])
 
 if app_mode == "Upload Document":
     render_upload_page()
