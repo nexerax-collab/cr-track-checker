@@ -141,24 +141,19 @@ def get_gemini_response(api_key: str, text_content: str) -> dict | None:
             {"category": "HARM_CATEGORY_DANGEROUS_CONTENT", "threshold": "BLOCK_MEDIUM_AND_ABOVE"},
         ]
         
-        schema = {
-            "type": "object",
-            "properties": {
-                "category": {"type": "string", "description": "The most likely document type."},
-                "confidence_score": {"type": "integer", "description": "A score from 0 to 100 representing certainty."},
-                "tags": {"type": "array", "items": {"type": "string"}, "description": "A list of 5-7 relevant keywords."},
-                "reasoning": {"type": "string", "description": "A brief justification for the chosen category and confidence."}
-            },
-            "required": ["category", "confidence_score", "tags", "reasoning"]
-        }
-
-        model = genai.GenerativeModel(model_name="gemini-1.5-flash", generation_config=generation_config, safety_settings=safety_settings)
+        # The JSON schema is defined implicitly in the prompt text itself.
+        # We no longer need a separate schema object.
+        model = genai.GenerativeModel(
+            model_name="gemini-1.5-flash",
+            generation_config=generation_config,
+            safety_settings=safety_settings
+        )
         
         prompt = f"""
         You are an expert in Product Lifecycle Management (PLM) and document control.
         Your task is to analyze the provided technical document text and classify it.
         
-        Based on the text content, perform the following actions and provide your response ONLY as a valid JSON object matching the defined schema:
+        Based on the text content, perform the following actions and provide your response ONLY as a valid JSON object with the following keys: "category", "confidence_score", "tags", "reasoning".
         1.  **category**: From the following list, choose the single most likely document type: {json.dumps(PLM_DOCUMENT_TYPES)}. If none fit, use 'Other'.
         2.  **confidence_score**: Provide an integer score from 0 to 100 indicating how confident you are.
         3.  **tags**: Generate a list of 5 to 7 relevant keywords.
@@ -170,9 +165,14 @@ def get_gemini_response(api_key: str, text_content: str) -> dict | None:
         ---
         """
 
-        response = model.generate_content([prompt, schema])
-        cleaned_response_text = response.text.strip().replace("```json", "").replace("```", "").strip()
-        result_json = json.loads(cleaned_response_text)
+        # *** FIX APPLIED HERE ***
+        # The schema object is removed from the generate_content call.
+        # We now only pass the prompt.
+        response = model.generate_content(prompt)
+        
+        # The Gemini model with response_mime_type="application/json" should return a clean JSON string.
+        # The .text attribute contains that string.
+        result_json = json.loads(response.text)
         return result_json
 
     except genai.types.generation_types.StopCandidateException as e:
@@ -188,14 +188,11 @@ def render_upload_page():
     """Renders the main page for uploading and analyzing documents."""
     st.title("📄 AI-Powered Document Classification & Tagging")
     
-    # Check for API Key at the beginning using a try-except block
     api_key_configured = False
     try:
-        # This is the standard way to check for a secret in Streamlit
         if st.secrets["google_api_key"]:
             api_key_configured = True
     except KeyError:
-        # This error occurs if the secret is not set at all
         api_key_configured = False
 
     if not api_key_configured:
@@ -210,7 +207,7 @@ def render_upload_page():
             
             The app will not function until the secret is set.
         """)
-        return # Stop rendering the rest of the page if no key
+        return
 
     st.markdown("""
     ### Welcome! Make Your Document Management Smarter.
